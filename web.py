@@ -119,7 +119,7 @@ tr:hover td{background:#16162a}
 <div class="stat-card purple">
 <div class="stat-label">Events Open</div>
 <div class="stat-value" id="events-count">-</div>
-<div class="stat-sub"><span id="hackathons-count">-</span> hackathons</div>
+<div class="stat-sub"><span id="hackathons-count">-</span> hackathons &middot; <span id="giveaways-count">-</span> giveaways</div>
 </div>
 <div class="stat-card green">
 <div class="stat-label">Qualified</div>
@@ -193,18 +193,19 @@ tr:hover td{background:#16162a}
 function scoreClass(s){return s>=60?'score-high':s>=30?'score-mid':'score-low'}
 function chainClass(c){if(!c)return'chain-default';c=c.toLowerCase();if(c.includes('eth'))return'chain-eth';if(c.includes('base'))return'chain-base';if(c.includes('arb'))return'chain-arb';if(c.includes('poly'))return'chain-poly';if(c.includes('sol'))return'chain-sol';return'chain-default'}
 function typeClass(t){if(!t)return'type-other';t=t.toLowerCase();if(t.includes('defi'))return'type-defi';if(t.includes('nft'))return'type-nft';if(t.includes('token'))return'type-token';if(t.includes('infra'))return'type-infra';if(t.includes('tool'))return'type-tooling';return'type-other'}
-function eventClass(t){return t==='hackathon'?'badge green':t==='meme_contest'?'badge purple':'badge orange'}
-function eventLabel(t){return t==='hackathon'?'Hackathon':t==='meme_contest'?'Meme Contest':t==='video_contest'?'Video Contest':t}
+function eventClass(t){return t==='hackathon'?'badge green':t==='meme_contest'?'badge purple':t==='giveaway'?'badge orange':'badge blue'}
+function eventLabel(t){return t==='hackathon'?'Hackathon':t==='meme_contest'?'Meme Contest':t==='video_contest'?'Video Contest':t==='giveaway'?'Giveaway':t}
 function daysLabel(d){if(d===null||d===undefined)return'';d=parseInt(d);return d<0?'CLOSED':d+'d left'}
 let activeTab='projects';
 function switchTab(el,t){document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));document.querySelectorAll('[id^=tab-]').forEach(e=>e.style.display='none');el.classList.add('active');document.getElementById('tab-'+t).style.display='';activeTab=t;if(t==='events'&&!window._eventsLoaded){loadEvents();window._eventsLoaded=true}}
+function tierLabel(t){return t==='high'?'<span class="badge green">HIGH ENG</span>':t==='low'?'<span class="badge orange">LOW ENG</span>':'<span style="color:#6b7280">-</span>'}
 function loadEvents(){
 fetch('/api/events').then(r=>r.json()).then(d=>{
 document.getElementById('events-badge').textContent=d.length;
 const el=document.getElementById('events-list');
 if(!d.length){el.innerHTML='<div class="empty">No open hackathons/contests yet. Scanning...</div>';return}
-el.innerHTML='<table><tr><th>Event</th><th>Type</th><th>Host</th><th>Deadline</th><th>Prizes</th><th>Link</th></tr>'+
-d.map(e=>'<tr><td><span style="color:#fbbf24;font-weight:600">'+e.name+'</span><br><span style="color:#6b7280;font-size:12px;max-width:300px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(e.description||'').substring(0,90)+'</span></td><td><span class="'+eventClass(e.event_type)+'">'+eventLabel(e.event_type)+'</span></td><td><a class="username" href="https://x.com/'+e.username+'" target="_blank">@'+e.username+'</a></td><td><b>'+e.deadline_short+'</b><br><span style="color:'+(e.days_left<0?'#f87171':'#34d399')+';font-size:12px">'+daysLabel(e.days_left)+'</span></td><td>'+(e.prizes||'<span style="color:#6b7280">-</span>')+'</td><td>'+(e.url?'<a href="'+e.url+'" target="_blank" style="color:#3b82f6;text-decoration:none;font-size:12px">Info</a>':'<span style="color:#6b7280">-</span>')+'</td></tr>'
+el.innerHTML='<table><tr><th>Event</th><th>Type</th><th>Engagement</th><th>Host</th><th>Deadline</th><th>Prizes</th><th>Link</th></tr>'+
+d.map(e=>'<tr><td><span style="color:#fbbf24;font-weight:600">'+e.name+'</span><br><span style="color:#6b7280;font-size:12px;max-width:300px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(e.description||'').substring(0,90)+'</span></td><td><span class="'+eventClass(e.event_type)+'">'+eventLabel(e.event_type)+'</span></td><td>'+(e.engagement_tier!=='none'&&e.engagement_tier?tierLabel(e.engagement_tier)+'<br><span style="color:#6b7280;font-size:11px">'+e.likes+'L '+e.retweets+'RT '+e.replies+'Rp</span>':'<span style="color:#6b7280">-</span>')+'</td><td><a class="username" href="https://x.com/'+e.username+'" target="_blank">@'+e.username+'</a></td><td><b>'+e.deadline_short+'</b><br><span style="color:'+(e.days_left<0?'#f87171':'#34d399')+';font-size:12px">'+daysLabel(e.days_left)+'</span></td><td>'+(e.prizes||'<span style="color:#6b7280">-</span>')+'</td><td>'+(e.url?'<a href="'+e.url+'" target="_blank" style="color:#3b82f6;text-decoration:none;font-size:12px">Info</a>':'<span style="color:#6b7280">-</span>')+'</td></tr>'
 ).join('')+'</table>';
 }).catch(e=>console.error(e));
 }
@@ -214,6 +215,7 @@ document.getElementById('total').textContent=d.total_accounts;
 document.getElementById('projects-count').textContent=d.projects_count;
 document.getElementById('events-count').textContent=d.events_upcoming;
 document.getElementById('hackathons-count').textContent=d.hackathons;
+document.getElementById('giveaways-count').textContent=d.giveaways||0;
 document.getElementById('qualified').textContent=d.qualified;
 document.getElementById('notified').textContent=d.notified;
 document.getElementById('leads-count').textContent=d.leads;
@@ -241,7 +243,7 @@ document.getElementById('leads-badge').textContent=d.length;
 const el=document.getElementById('leads-list');
 if(!d.length){el.innerHTML='<div class="empty">No launching or hiring projects found yet.</div>';return}
 el.innerHTML='<table><tr><th>Project</th><th>Category</th><th>Builder</th><th>Score</th><th>Signals</th><th>Link</th></tr>'+
-d.map(a=>'<tr><td><span style="color:#a78bfa;font-weight:600">'+((a.project_name||'').replace('@'+a.username+'\u0027s project','')||a.name||a.username)+'</span><br><span style="color:#6b7280;font-size:12px;max-width:280px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(a.project_description||'').substring(0,90)+'</span></td><td>'+(a.is_launch?'<span class="badge green">New Launch</span> ':'')+(a.is_hiring?'<span class="badge orange">Hiring</span>':'')+'</td><td><a class="username" href="https://x.com/'+a.username+'" target="_blank">@'+a.username+'</a></td><td><b>'+a.final_score+'</b>/100<span class="score-bar"><span class="score-fill '+scoreClass(a.final_score)+'" style="width:'+a.final_score+'%"></span></span></td><td>'+((a.signals_list||[]).slice(0,3).map(s=>'<span class="signal-tag">'+s+'</span>').join(''))+'</td><td>'+(a.project_chain?'<span class="chain-tag '+chainClass(a.project_chain)+'" style="font-size:10px">'+a.project_chain+'</span>':'')+' '+(a.project_url?'<a href="'+a.project_url+'" target="_blank" style="color:#3b82f6;text-decoration:none;font-size:12px">Link</a>':'')+' <a href="https://x.com/'+a.username+'" target="_blank" style="color:#94a3b8;text-decoration:none;font-size:12px">X</a></td></tr>'
+d.map(a=>'<tr><td><span style="color:#a78bfa;font-weight:600">'+((a.project_name||'').replace('@'+a.username+'\\x27s project','')||a.name||a.username)+'</span><br><span style="color:#6b7280;font-size:12px;max-width:280px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(a.project_description||'').substring(0,90)+'</span></td><td>'+(a.is_launch?'<span class="badge green">New Launch</span> ':'')+(a.is_hiring?'<span class="badge orange">Hiring</span>':'')+'</td><td><a class="username" href="https://x.com/'+a.username+'" target="_blank">@'+a.username+'</a></td><td><b>'+a.final_score+'</b>/100<span class="score-bar"><span class="score-fill '+scoreClass(a.final_score)+'" style="width:'+a.final_score+'%"></span></span></td><td>'+((a.signals_list||[]).slice(0,3).map(s=>'<span class="signal-tag">'+s+'</span>').join(''))+'</td><td>'+(a.project_chain?'<span class="chain-tag '+chainClass(a.project_chain)+'" style="font-size:10px">'+a.project_chain+'</span>':'')+' '+(a.project_url?'<a href="'+a.project_url+'" target="_blank" style="color:#3b82f6;text-decoration:none;font-size:12px">Link</a>':'')+' <a href="https://x.com/'+a.username+'" target="_blank" style="color:#94a3b8;text-decoration:none;font-size:12px">X</a></td></tr>'
 ).join('')+'</table>';
 }).catch(e=>console.error(e));
 fetch('/api/runs').then(r=>r.json()).then(d=>{
@@ -308,6 +310,12 @@ def api_stats():
     )
     video_contests = cur.fetchone()[0]
 
+    cur.execute(
+        "SELECT COUNT(*) FROM events WHERE event_type = 'giveaway' AND deadline > ?",
+        (now,),
+    )
+    giveaways = cur.fetchone()[0]
+
     cur.execute("SELECT COUNT(*) FROM accounts WHERE is_launch = 1 OR is_hiring = 1")
     leads = cur.fetchone()[0]
 
@@ -344,6 +352,7 @@ def api_stats():
         "hackathons": hackathons,
         "meme_contests": meme_contests,
         "video_contests": video_contests,
+        "giveaways": giveaways,
         "leads": leads,
         "last_run": last_run,
         "last_run_short": last_run_short,
@@ -438,7 +447,8 @@ def api_events():
     cur = db.cursor()
     cur.execute(
         """SELECT id, event_type, name, username, description, deadline, days_left,
-        prizes, url, followers, notified FROM events
+        prizes, url, followers, notified, engagement_tier, likes, retweets, replies
+        FROM events
         WHERE deadline > ? ORDER BY deadline ASC""",
         (now,),
     )

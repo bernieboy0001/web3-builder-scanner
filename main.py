@@ -56,7 +56,11 @@ async def run_pipeline():
     try:
         event_tweets = await discover_events()
         for evt in event_tweets:
-            event = extract_event_from_tweet(evt.get("event_tweet", ""), evt.get("username", ""))
+            event = extract_event_from_tweet(
+                evt.get("event_tweet", ""),
+                evt.get("username", ""),
+                evt.get("engagement"),
+            )
             if event:
                 event["followers"] = evt.get("followers", 0)
                 await save_event(event)
@@ -241,7 +245,7 @@ async def run_pipeline():
     notified_events = 0
     try:
         upcoming = await get_upcoming_events()
-        for evt_id, etype, name, username, deadline, days_left, prizes, url in upcoming:
+        for evt_id, etype, name, username, deadline, days_left, prizes, url, engagement_tier, likes, retweets, replies in upcoming:
             deadline_dt = datetime.fromisoformat(deadline)
             now = datetime.now(timezone.utc)
             if deadline_dt < now:
@@ -254,6 +258,10 @@ async def run_pipeline():
                 "days_left": days_left,
                 "prizes": prizes,
                 "url": url,
+                "engagement_tier": engagement_tier,
+                "likes": likes,
+                "retweets": retweets,
+                "replies": replies,
             })
             if sent:
                 await mark_event_notified(evt_id)

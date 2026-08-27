@@ -89,6 +89,7 @@ def _format_event_message(event: dict) -> str:
         "hackathon": "Hackathon",
         "meme_contest": "Meme Contest",
         "video_contest": "Video Contest",
+        "giveaway": "Giveaway",
         "contest": "Contest",
     }
     label = etype_labels.get(etype, "Contest")
@@ -96,6 +97,7 @@ def _format_event_message(event: dict) -> str:
     username = event.get("username", "unknown")
     days_left = event.get("days_left", "?")
     prizes = _html_escape(event.get("prizes", ""))
+    engagement_tier = event.get("engagement_tier", "")
 
     lines = [
         f"Upcoming {label}: {name}",
@@ -103,6 +105,12 @@ def _format_event_message(event: dict) -> str:
         f"Posted by @{username}",
         f"Deadline: {days_left} days left",
     ]
+    if engagement_tier in ("low", "high"):
+        lines.append(
+            f"Engagement: {engagement_tier.upper()} "
+            f"(likes {event.get('likes', 0)}, RT {event.get('retweets', 0)}, "
+            f"replies {event.get('replies', 0)})"
+        )
     if prizes:
         lines.append(f"Prizes: {prizes}")
     url = _html_escape(event.get("url", ""))

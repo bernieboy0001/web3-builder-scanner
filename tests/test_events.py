@@ -3,6 +3,9 @@ from enrichment.events import (
     extract_event_from_tweet,
     parse_deadline,
     _event_type,
+    classify_giveaway_engagement,
+    LOW_ENGAGEMENT_CRITERIA,
+    HIGH_ENGAGEMENT_CRITERIA,
 )
 
 
@@ -46,6 +49,37 @@ class TestEventType:
     def test_video_contest(self):
         assert _event_type("Video contest: make a short video") == "video_contest"
 
+    def test_giveaway(self):
+        assert _event_type("Giveaway! Like and retweet to enter") == "giveaway"
+
+    def test_raffle(self):
+        assert _event_type("Solana raffle ends next Friday") == "giveaway"
+
+
+class TestGiveawayEngagement:
+    def test_criteria_are_two_separate_lists(self):
+        assert isinstance(LOW_ENGAGEMENT_CRITERIA, list)
+        assert isinstance(HIGH_ENGAGEMENT_CRITERIA, list)
+        assert LOW_ENGAGEMENT_CRITERIA and HIGH_ENGAGEMENT_CRITERIA
+
+    def test_high_engagement(self):
+        result = classify_giveaway_engagement({"likes": 3000, "retweets": 900, "replies": 200})
+        assert result["tier"] == "high"
+        assert result["metrics"]["likes"] == 3000
+
+    def test_high_engagement_retweets_only(self):
+        assert classify_giveaway_engagement({"retweets": 900})["tier"] == "high"
+
+    def test_low_engagement(self):
+        result = classify_giveaway_engagement({"likes": 150, "retweets": 30})
+        assert result["tier"] == "low"
+
+    def test_no_engagement(self):
+        assert classify_giveaway_engagement({"likes": 10, "retweets": 2})["tier"] == "none"
+
+    def test_empty_metrics(self):
+        assert classify_giveaway_engagement({})["tier"] == "none"
+
 
 class TestEventExtraction:
     def test_hackathon_extraction(self):
@@ -80,3 +114,33 @@ class TestEventExtraction:
 
     def test_empty_tweet_returns_none(self):
         assert extract_event_from_tweet("", "project") is None
+
+    def test_giveaway_extraction(self):
+        tweet = (
+            "Giveaway! Like & retweet to enter. $1000 USDC prize, 3 random winners. "
+            "Giveaway ends: in 3 days."
+        )
+        engagement = {"likes": 120, "retweets": 40, "replies": 12}
+        event = extract_event_from_tweet(tweet, "token", engagement)
+        assert event is not None
+        assert event["event_type"] == "giveaway"
+        assert event["engagement_tier"] == "low"
+        assert event["likes"] == 120
+        assert event["retweets"] == 40
+        assert event["replies"] == 12
+        assert any("giveaway" in s for s in event["signals"])
+
+    def test_giveaway_high_tier_extraction(self):
+        tweet = "Mega giveaway ends: in 24 hours. Like and retweet to enter."
+        engagement = {"likes": 5000, "retweets": 1200, "replies": 400}
+        event = extract_event_from_tweet(tweet, "project", engagement)
+        assert event is not None
+        assert event["event_type"] == "giveaway"
+        assert event["engagement_tier"] == "high"
+
+    def test_contest_ignores_engagement(self):
+        tweet = "The Base Hackathon is live! Submissions due January 30."
+        event = extract_event_from_tweet(tweet, "thebase", {"likes": 99999, "retweets": 99999})
+        assert event is not None
+        assert event["event_type"] == "hackathon"
+        assert event.get("engagement_tier") == ""

@@ -12,6 +12,50 @@ VIDEO_KEYWORDS = [
     "video contest", "video competition", "video challenge", "reels contest",
     "shorts contest", "make a video", "video creation contest", "tiktok contest",
 ]
+GIVEAWAY_KEYWORDS = [
+    "giveaway", "raffle",
+    "like and retweet", "like and rt", "love and retweet", "love and rt",
+    "follow and retweet", "follow and rt", "rt to enter", "retweet to enter",
+    "comment to enter", "comment below to enter",
+    "tag 3 friends", "tag a friend",
+    "random winner", "winners announced", "winner picked",
+]
+
+LOW_ENGAGEMENT_CRITERIA = [
+    {"likes": 80, "retweets": 20},
+    {"likes": 150},
+    {"replies": 25},
+]
+HIGH_ENGAGEMENT_CRITERIA = [
+    {"likes": 1500, "retweets": 350},
+    {"likes": 3000},
+    {"retweets": 800},
+    {"replies": 300},
+]
+
+
+def classify_giveaway_engagement(engagement: dict) -> dict:
+    """Grade a giveaway tweet's engagement as high/low against the two threshold lists."""
+    metrics = {
+        "likes": int(engagement.get("likes") or 0),
+        "retweets": int(engagement.get("retweets") or 0),
+        "replies": int(engagement.get("replies") or 0),
+    }
+
+    def meets(criteria: list[dict]) -> bool:
+        for criterion in criteria:
+            if all(metrics.get(metric, 0) >= minimum for metric, minimum in criterion.items()):
+                return True
+        return False
+
+    if meets(HIGH_ENGAGEMENT_CRITERIA):
+        tier = "high"
+    elif meets(LOW_ENGAGEMENT_CRITERIA):
+        tier = "low"
+    else:
+        tier = "none"
+
+    return {"tier": tier, "metrics": metrics}
 
 DEADLINE_PATTERNS = [
     r"(?:deadline|due|closes|close|ends|ending|end date|last day|apply by|before|until|by)\s*(?::|is|:)\s*([A-Za-z0-9,/:.\- ]{3,40})",
@@ -149,6 +193,8 @@ def _event_type(text: str) -> str:
         return "meme_contest"
     if any(kw in t for kw in VIDEO_KEYWORDS):
         return "video_contest"
+    if any(kw in t for kw in GIVEAWAY_KEYWORDS):
+        return "giveaway"
     return "contest"
 
 
@@ -172,8 +218,12 @@ def _extract_url(text: str, username: str) -> str:
     return f"https://x.com/{username}"
 
 
-def extract_event_from_tweet(event_tweet: str, username: str) -> dict | None:
-    """Extract hackathon/meme/video contest event with deadline from a tweet."""
+def extract_event_from_tweet(
+    event_tweet: str,
+    username: str,
+    engagement: dict | None = None,
+) -> dict | None:
+    """Extract hackathon/meme/video/giveaway event with deadline from a tweet."""
     if not event_tweet:
         return None
 
@@ -204,11 +254,13 @@ def extract_event_from_tweet(event_tweet: str, username: str) -> dict | None:
         signals.append("meme contest")
     elif ev_type == "video_contest":
         signals.append("video contest")
+    elif ev_type == "giveaway":
+        signals.append("giveaway")
     if prizes:
         signals.append(f"prizes: {prizes}")
     signals.append(f"deadline: {deadline.strftime('%b %d')}")
 
-    return {
+    event = {
         "event_type": ev_type,
         "name": _extract_name(event_tweet, username),
         "username": username,
@@ -222,3 +274,16 @@ def extract_event_from_tweet(event_tweet: str, username: str) -> dict | None:
         "tweet_text": event_tweet[:500],
         "followers": 0,
     }
+
+    if ev_type == "giveaway":
+        tier_result = classify_giveaway_engagement(engagement or {})
+        event["engagement_tier"] = tier_result["tier"]
+        event["likes"] = tier_result["metrics"]["likes"]
+        event["retweets"] = tier_result["metrics"]["retweets"]
+        event["replies"] = tier_result["metrics"]["replies"]
+        if tier_result["tier"] != "none":
+            event["signals"].append(f"giveaway ({tier_result['tier']} engagement)")
+    elif engagement:
+        event["engagement_tier"] = ""
+
+    return event

@@ -92,6 +92,10 @@ CREATE TABLE IF NOT EXISTS events (
     signals TEXT,
     tweet_text TEXT,
     notified INTEGER DEFAULT 0,
+    likes INTEGER DEFAULT 0,
+    retweets INTEGER DEFAULT 0,
+    replies INTEGER DEFAULT 0,
+    engagement_tier TEXT DEFAULT '',
     UNIQUE(name, username, deadline)
 );
 """
@@ -127,6 +131,16 @@ async def init_db():
             await db.execute("ALTER TABLE runs ADD COLUMN events_notified INTEGER DEFAULT 0")
         except Exception:
             pass
+        for col, typ in [
+            ("likes", "INTEGER DEFAULT 0"),
+            ("retweets", "INTEGER DEFAULT 0"),
+            ("replies", "INTEGER DEFAULT 0"),
+            ("engagement_tier", "TEXT DEFAULT ''"),
+        ]:
+            try:
+                await db.execute(f"ALTER TABLE events ADD COLUMN {col} {typ}")
+            except Exception:
+                pass
         await db.commit()
         logger.info("Database initialized")
 
@@ -238,8 +252,9 @@ async def save_event(event: dict):
         await db.execute(
             """INSERT OR IGNORE INTO events
             (event_type, name, username, description, deadline, days_left,
-             prizes, url, followers, discovered_at, signals, tweet_text, notified)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+             prizes, url, followers, discovered_at, signals, tweet_text, notified,
+             likes, retweets, replies, engagement_tier)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 event.get("event_type", ""),
                 event.get("name", ""),
@@ -254,6 +269,10 @@ async def save_event(event: dict):
                 json.dumps(event.get("signals", [])),
                 event.get("tweet_text", ""),
                 1 if event.get("notified") else 0,
+                event.get("likes", 0),
+                event.get("retweets", 0),
+                event.get("replies", 0),
+                event.get("engagement_tier", ""),
             ),
         )
         await db.commit()
@@ -272,7 +291,8 @@ async def get_upcoming_events() -> list[tuple]:
 
     async with aiosqlite.connect(settings.db_path) as db:
         cursor = await db.execute(
-            """SELECT id, event_type, name, username, deadline, days_left, prizes, url
+            """SELECT id, event_type, name, username, deadline, days_left, prizes, url,
+            engagement_tier, likes, retweets, replies
             FROM events WHERE deadline > ? AND notified = 0 ORDER BY deadline ASC""",
             (datetime.now(timezone.utc).isoformat(),),
         )

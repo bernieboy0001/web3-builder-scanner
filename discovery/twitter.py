@@ -56,6 +56,16 @@ EVENT_SEARCH_QUERIES = [
     "shorts contest crypto",
     "make a video win prizes crypto",
     "content creator contest crypto",
+    "crypto giveaway ends",
+    "giveaway ends soon",
+    "raffle ends",
+    "giveaway like and retweet",
+    "giveaway follow to enter",
+    "giveaway winner announced",
+    "random winner giveaway",
+    "last day giveaway",
+    "nft giveaway ends",
+    "token giveaway",
 ]
 
 MIN_FOLLOWERS = 0
@@ -232,6 +242,11 @@ async def discover_events() -> list[dict]:
                     "tweet_count": tweet_count,
                     "profile_url": f"https://x.com/{username}",
                     "event_tweet": tweet.text[:500] if tweet.text else "",
+                    "engagement": {
+                        "likes": getattr(tweet, "favorite_count", None) or 0,
+                        "retweets": getattr(tweet, "retweet_count", None) or 0,
+                        "replies": getattr(tweet, "reply_count", None) or 0,
+                    },
                     "discovered_via": query,
                     "discovered_at": datetime.now(timezone.utc).isoformat(),
                 }
