@@ -164,19 +164,32 @@ def extract_projects_from_tweet(tweet_text: str, username: str, followers: int) 
 
 def _extract_project_name(text: str, username: str) -> str:
     patterns = [
+        r"[$]([A-Za-z][A-Za-z0-9]{2,12})\b",
         r"(?:introducing|presenting|meet|say hello to)\s+([A-Z][a-zA-Z0-9]+)",
+        r"(?:just\s+)?(?:launched|deployed|released|went live|live on|is live|now live)\s*(?:the\s+)?([A-Z][a-zA-Z0-9]{2,})",
         r"([A-Z][a-zA-Z0-9]+)\s+(?:is|goes|just)\s+(?:live|live on|launched)",
         r"(?:my|our|the)\s+([A-Z][a-zA-Z0-9]+)\s+(?:is|contract|token|nft|protocol|dapp|app)",
+        r"([A-Z][a-zA-Z0-9]{2,})\s+(?:protocol|token|coin|dapp|swap|chain)",
     ]
     for pattern in patterns:
-        match = re.search(pattern, text)
+        match = re.search(pattern, text, re.IGNORECASE)
         if match:
-            return match.group(1)
+            name = match.group(1).strip(".")
+            if len(name) > 1:
+                return name
 
     words = text.split()
+    skip = {
+        "Just", "The", "This", "That", "My", "Our", "New", "How", "You",
+        "There", "Brand", "Building", "Mainnet", "Base", "We", "I", "Your",
+        "When", "What", "After", "Before", "Then", "Now", "Stay", "Big",
+        "Next", "Today", "Tomorrow", "These", "Those", "Here", "One", "Two",
+        "Join", "Come", "Ready", "Check", "Total", "Free", "Best", "Also",
+    }
     for word in words:
-        if word.istitle() and len(word) > 2 and word not in ("Just", "The", "This", "That", "My", "Our", "New"):
-            return word
+        clean = word.strip(".,;!?:()\"'")
+        if clean.istitle() and len(clean) > 2 and clean not in skip:
+            return clean
 
     return f"@{username}'s project"
 
