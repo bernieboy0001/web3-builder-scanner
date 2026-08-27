@@ -1,17 +1,16 @@
 services:
-  - type: cron
+  - type: web
     name: web3-builder-scanner
     runtime: python
-    schedule: "0 * * * *"
     buildCommand: pip install -r requirements.txt
     startCommand: python main.py
     envVars:
       - key: TWITTER_COOKIES_PATH
-        sync: false
+        value: "cookies.json"
       - key: OPENROUTER_API_KEY
         sync: false
       - key: OPENROUTER_MODEL
-        value: "deepseek/deepseek-chat:free"
+        value: "nvidia/nemotron-3-ultra-550b-a55b:free"
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: TELEGRAM_CHAT_ID
@@ -20,3 +19,5 @@ services:
         value: "60"
       - key: MAX_ACCOUNTS_PER_RUN
         value: "50"
+      - key: PORT
+        value: "5000"

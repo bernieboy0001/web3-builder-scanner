@@ -1,7 +1,11 @@
 import asyncio
 import logging
+import os
 import time
 from datetime import datetime, timezone
+
+from apscheduler.schedulers.background import BackgroundScheduler
+from flask import Flask
 
 from config import settings
 from discovery.twitter import discover_builders
@@ -189,8 +193,27 @@ async def run_pipeline():
     return run_data
 
 
-def main():
+def scheduled_run():
     asyncio.run(run_pipeline())
+
+
+def create_app():
+    from web import app
+    return app
+
+
+def main():
+    asyncio.run(init_db())
+
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(scheduled_run, "interval", hours=1, id="scanner")
+    scheduler.start()
+    logger.info("Scheduler started - will run every hour")
+
+    app = create_app()
+    port = int(os.environ.get("PORT", 5000))
+    logger.info(f"Web dashboard starting on port {port}")
+    app.run(host="0.0.0.0", port=port, debug=False)
 
 
 if __name__ == "__main__":
