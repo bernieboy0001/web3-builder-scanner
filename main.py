@@ -8,18 +8,19 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from flask import Flask
 
 from config import settings
-from discovery.twitter import discover_builders
+from discovery.twitter import discover_builders, discover_events
 from enrichment.profile import extract_bio_signals
 from enrichment.github import get_github_data
 from enrichment.onchain import get_onchain_data
 from enrichment.projects import extract_projects_from_tweet, has_website
+from enrichment.events import extract_event_from_tweet
 from scoring.signals import score_content
 from scoring.llm_judge import llm_judge
 from scoring.thresholds import compute_profile_score, compute_engagement_score, compute_final_score
 from notification.telegram import send_telegram
 from storage.database import (
-    init_db, save_account, save_project, mark_notified, save_run, get_stats, is_notified,
-    log_error,
+    init_db, save_account, save_project, save_event, mark_notified, mark_event_notified,
+    save_run, get_stats, is_notified, get_upcoming_events, log_error,
 )
 
 logging.basicConfig(
@@ -49,6 +50,25 @@ async def run_pipeline():
         accounts = []
 
     logger.info(f"Found {len(accounts)} candidate accounts")
+
+    logger.info("Step 2: Discovering hackathons/contests from Twitter...")
+    events_found = 0
+    try:
+        event_tweets = await discover_events()
+        for evt in event_tweets:
+            event = extract_event_from_tweet(evt.get("event_tweet", ""), evt.get("username", ""))
+            if event:
+                event["followers"] = evt.get("followers", 0)
+                await save_event(event)
+                events_found += 1
+                logger.info(
+                    f"  EVENT: {event['name']} ({event['event_type']}) "
+                    f"deadline {event['deadline']} ({event['days_left']}d left)"
+                )
+    except Exception as e:
+        logger.error(f"Event discovery failed: {e}")
+
+    logger.info(f"Found {events_found} upcoming events with deadlines")
 
     qualified = 0
     notified = 0
@@ -215,6 +235,30 @@ async def run_pipeline():
             logger.error(f"  Error processing @{username}: {e}")
             await log_error(username, str(e))
 
+    notified_events = 0
+    try:
+        upcoming = await get_upcoming_events()
+        for evt_id, etype, name, username, deadline, days_left, prizes, url in upcoming:
+            deadline_dt = datetime.fromisoformat(deadline)
+            now = datetime.now(timezone.utc)
+            if deadline_dt < now:
+                continue
+            sent = await send_telegram({
+                "event_type": etype,
+                "name": name,
+                "username": username,
+                "deadline": deadline,
+                "days_left": days_left,
+                "prizes": prizes,
+                "url": url,
+            })
+            if sent:
+                await mark_event_notified(evt_id)
+                notified_events += 1
+                await asyncio.sleep(1)
+    except Exception as e:
+        logger.error(f"Event notification failed: {e}")
+
     duration = time.time() - start
     run_data = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -222,6 +266,8 @@ async def run_pipeline():
         "accounts_qualified": qualified,
         "accounts_notified": notified,
         "projects_found": projects_found,
+        "events_found": events_found,
+        "events_notified": notified_events,
         "errors": errors,
         "duration_seconds": round(duration, 1),
     }
@@ -229,7 +275,8 @@ async def run_pipeline():
 
     logger.info(
         f"=== Run complete: {len(accounts)} found, {qualified} qualified, "
-        f"{notified} notified, {errors} errors, {duration:.1f}s ==="
+        f"{notified} notified, {projects_found} projects, {events_found} events, "
+        f"{errors} errors, {duration:.1f}s ==="
     )
     return run_data
 

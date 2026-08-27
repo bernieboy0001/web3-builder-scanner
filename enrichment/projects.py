@@ -19,14 +19,23 @@ LAUNCH_KEYWORDS = [
     "going live", "now live", "is live", "public launch",
     "mainnet launch", "beta launch", "alpha launch",
 ]
+EXISTING_PROJECT_KEYWORDS = [
+    "roadmap", "milestone", "announcement", "approved", "listed",
+    "tge", "ido", "ico", "token launch", "token sale", "presale",
+    "audit", "integration", "partnership", "upgrade", "v2", "v3",
+    "new feature", "update", "rebrand", "airdrop",
+]
 PROJECT_TYPE_KEYWORDS = {
     "DeFi": ["defi", "dex", "amm", "lending", "borrowing", "yield", "farming", "staking", "swap", "liquidity"],
     "NFT": ["nft", "erc-721", "erc-1155", "collection", "mint", "pfp", "art"],
-    "Token": ["erc-20", "token", "governance", "dao", "vote"],
+    "Token": ["erc-20", "token", "governance", "dao", "vote", "memecoin", "meme", "presale", "ido", "tge"],
+    "Meme": ["memecoin", "meme coin", "meme", "dog", "pepe", "shiba", "bonk", "woof"],
     "Infrastructure": ["bridge", "oracle", "l2", "rollup", "zk", "layer 2", "infra", "rpc", "indexer"],
     "Tooling": ["sdk", "api", "framework", "cli", "devtool", "tooling", "hardhat", "foundry"],
     "GameFi": ["game", "gaming", "play to earn", "metaverse", "voxel"],
+    "Gaming": ["game", "gaming", "play", "esports", "telegram game", "tap to earn"],
     "Social": ["social", "identity", "attestation", "reputation", "profile"],
+    "AI": ["ai", "agent", "llm", "gpt", "automation", "artificial intelligence"],
 }
 
 
@@ -36,13 +45,29 @@ def extract_projects_from_tweet(tweet_text: str, username: str, followers: int) 
     text_lower = tweet_text.lower()
 
     is_launch = any(kw in text_lower for kw in LAUNCH_KEYWORDS)
-    if not is_launch:
+    is_existing = any(kw in text_lower for kw in EXISTING_PROJECT_KEYWORDS)
+    if not is_launch and not is_existing:
         return projects
 
     chains = []
     for domain, chain in explorer_links.items():
         if domain in text_lower:
             chains.append(chain)
+
+    chain_keywords = {
+        "ethereum": "ethereum", "eth": "ethereum", "base": "Base",
+        "solana": "Solana", "arbitrum": "Arbitrum", "polygon": "Polygon",
+        "bsc": "BSC", "binance": "BSC", "avalanche": "Avalanche",
+        "ton": "TON", "sui": "Sui", "aptos": "Aptos", "near": "NEAR",
+        "optimism": "Optimism", "sepolia": "Ethereum testnet",
+        "scroll": "Scroll", "blast": "Blast", "zksync": "zkSync",
+        "fantom": "Fantom", "celestia": "Celestia",
+    }
+    for kw, chain in chain_keywords.items():
+        if kw in text_lower:
+            chains.append(chain)
+
+    chains = list(dict.fromkeys(chains))
 
     contract_match = CONTRACT_PATTERN.search(tweet_text)
     contract_address = contract_match.group(0) if contract_match else None
@@ -86,6 +111,9 @@ def extract_projects_from_tweet(tweet_text: str, username: str, followers: int) 
         if is_launch:
             score += 30
             signals.append("launch announcement")
+        if is_existing:
+            score += 15
+            signals.append("project activity/update")
         if contract_address:
             score += 25
             signals.append("contract address shared")
@@ -111,6 +139,8 @@ def extract_projects_from_tweet(tweet_text: str, username: str, followers: int) 
             "discovered_at": datetime.now(timezone.utc).isoformat(),
             "score": min(score, 100),
             "signals": signals,
+            "is_launch": 1 if is_launch else 0,
+            "is_existing": 1 if is_existing else 0,
             "tweet_text": tweet_text[:500],
         })
 

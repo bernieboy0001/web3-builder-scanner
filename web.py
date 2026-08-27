@@ -102,7 +102,7 @@ tr:hover td{background:#16162a}
 <body>
 <div class="header">
 <h1>&#9889; Web3 Builder <span>Scanner</span></h1>
-<p>Discovering genuine Web3 builders & newly launched projects under 1k followers</p>
+<p>Discovering new & existing crypto projects across all chains + upcoming hackathons & contests</p>
 </div>
 <div class="container">
 <div class="stats-grid">
@@ -116,17 +116,22 @@ tr:hover td{background:#16162a}
 <div class="stat-value" id="projects-count">-</div>
 <div class="stat-sub">newly launched</div>
 </div>
+<div class="stat-card purple">
+<div class="stat-label">Events Open</div>
+<div class="stat-value" id="events-count">-</div>
+<div class="stat-sub"><span id="hackathons-count">-</span> hackathons</div>
+</div>
 <div class="stat-card green">
 <div class="stat-label">Qualified</div>
 <div class="stat-value" id="qualified">-</div>
 <div class="stat-sub">score >= 60</div>
 </div>
-<div class="stat-card purple">
+<div class="stat-card orange">
 <div class="stat-label">Notified</div>
 <div class="stat-value" id="notified">-</div>
 <div class="stat-sub">sent to Telegram</div>
 </div>
-<div class="stat-card orange">
+<div class="stat-card cyan">
 <div class="stat-label">No Website</div>
 <div class="stat-value" id="no-website-count">-</div>
 <div class="stat-sub">builders needing sites</div>
@@ -139,10 +144,11 @@ tr:hover td{background:#16162a}
 </div>
 
 <div class="tabs">
-<button class="tab active" onclick="switchTab('projects')">New Projects</button>
-<button class="tab" onclick="switchTab('builders')">Top Builders</button>
-<button class="tab" onclick="switchTab('nowebsite')">No Website Yet</button>
-<button class="tab" onclick="switchTab('runs')">Run History</button>
+<button class="tab active" onclick="switchTab(this,'projects')">New Projects</button>
+<button class="tab" onclick="switchTab(this,'builders')">Top Builders</button>
+<button class="tab" onclick="switchTab(this,'nowebsite')">No Website Yet</button>
+<button class="tab" onclick="switchTab(this,'events')">Hackathons & Contests</button>
+<button class="tab" onclick="switchTab(this,'runs')">Run History</button>
 </div>
 
 <div id="tab-projects" class="section" style="border-radius:0 0 12px 12px;margin-top:-1px">
@@ -167,6 +173,13 @@ tr:hover td{background:#16162a}
 <div id="nowebsite-list"><div class="empty">Loading...</div></div>
 </div>
 
+<div id="tab-events" class="section" style="display:none;border-radius:0 0 12px 12px;margin-top:-1px">
+<div class="section-header">
+<h2>Open Hackathons & Contests <span class="badge green" id="events-badge">0</span></h2>
+</div>
+<div id="events-list"><div class="empty">Loading...</div></div>
+</div>
+
 <div id="tab-runs" class="section" style="display:none;border-radius:0 0 12px 12px;margin-top:-1px">
 <div class="section-header">
 <h2>Run History</h2>
@@ -180,17 +193,33 @@ tr:hover td{background:#16162a}
 function scoreClass(s){return s>=60?'score-high':s>=30?'score-mid':'score-low'}
 function chainClass(c){if(!c)return'chain-default';c=c.toLowerCase();if(c.includes('eth'))return'chain-eth';if(c.includes('base'))return'chain-base';if(c.includes('arb'))return'chain-arb';if(c.includes('poly'))return'chain-poly';if(c.includes('sol'))return'chain-sol';return'chain-default'}
 function typeClass(t){if(!t)return'type-other';t=t.toLowerCase();if(t.includes('defi'))return'type-defi';if(t.includes('nft'))return'type-nft';if(t.includes('token'))return'type-token';if(t.includes('infra'))return'type-infra';if(t.includes('tool'))return'type-tooling';return'type-other'}
+function eventClass(t){return t==='hackathon'?'badge green':t==='meme_contest'?'badge purple':'badge orange'}
+function eventLabel(t){return t==='hackathon'?'Hackathon':t==='meme_contest'?'Meme Contest':t==='video_contest'?'Video Contest':t}
+function daysLabel(d){if(d===null||d===undefined)return'';d=parseInt(d);return d<0?'CLOSED':d+'d left'}
 let activeTab='projects';
-function switchTab(t){document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));document.querySelectorAll('[id^=tab-]').forEach(e=>e.style.display='none');event.target.classList.add('active');document.getElementById('tab-'+t).style.display='';activeTab=t}
+function switchTab(el,t){document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));document.querySelectorAll('[id^=tab-]').forEach(e=>e.style.display='none');el.classList.add('active');document.getElementById('tab-'+t).style.display='';activeTab=t;if(t==='events'&&!window._eventsLoaded){loadEvents();window._eventsLoaded=true}}
+function loadEvents(){
+fetch('/api/events').then(r=>r.json()).then(d=>{
+document.getElementById('events-badge').textContent=d.length;
+const el=document.getElementById('events-list');
+if(!d.length){el.innerHTML='<div class="empty">No open hackathons/contests yet. Scanning...</div>';return}
+el.innerHTML='<table><tr><th>Event</th><th>Type</th><th>Host</th><th>Deadline</th><th>Prizes</th><th>Link</th></tr>'+
+d.map(e=>'<tr><td><span style="color:#fbbf24;font-weight:600">'+e.name+'</span><br><span style="color:#6b7280;font-size:12px;max-width:300px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(e.description||'').substring(0,90)+'</span></td><td><span class="'+eventClass(e.event_type)+'">'+eventLabel(e.event_type)+'</span></td><td><a class="username" href="https://x.com/'+e.username+'" target="_blank">@'+e.username+'</a></td><td><b>'+e.deadline_short+'</b><br><span style="color:'+(e.days_left<0?'#f87171':'#34d399')+';font-size:12px">'+daysLabel(e.days_left)+'</span></td><td>'+(e.prizes||'<span style="color:#6b7280">-</span>')+'</td><td>'+(e.url?'<a href="'+e.url+'" target="_blank" style="color:#3b82f6;text-decoration:none;font-size:12px">Info</a>':'<span style="color:#6b7280">-</span>')+'</td></tr>'
+).join('')+'</table>';
+}).catch(e=>console.error(e));
+}
 function loadData(){
 fetch('/api/stats').then(r=>r.json()).then(d=>{
 document.getElementById('total').textContent=d.total_accounts;
 document.getElementById('projects-count').textContent=d.projects_count;
+document.getElementById('events-count').textContent=d.events_upcoming;
+document.getElementById('hackathons-count').textContent=d.hackathons;
 document.getElementById('qualified').textContent=d.qualified;
 document.getElementById('notified').textContent=d.notified;
 document.getElementById('no-website-count').textContent=d.no_website;
 document.getElementById('last-run').textContent=d.last_run_short||d.last_run;
 }).catch(e=>console.error(e));
+loadEvents();
 fetch('/api/projects').then(r=>r.json()).then(d=>{
 document.getElementById('proj-badge').textContent=d.length;
 const el=document.getElementById('projects-list');
@@ -218,7 +247,7 @@ d.map(a=>'<tr><td><a class="username" href="'+a.profile_url+'" target="_blank">@
 fetch('/api/runs').then(r=>r.json()).then(d=>{
 const el=document.getElementById('runs-list');
 if(!d.length){el.innerHTML='<div class="empty">No runs yet</div>';return}
-el.innerHTML=d.map(r=>'<div class="run-item"><div><div class="run-time">'+r.timestamp+'</div></div><div class="run-stats"><span class="run-stat">Found <b>'+r.accounts_found+'</b></span><span class="run-stat">Projects <b>'+(r.projects_found||0)+'</b></span><span class="run-stat">Qualified <b>'+r.accounts_qualified+'</b></span><span class="run-stat">Notified <b>'+r.accounts_notified+'</b></span><span class="run-stat">Errors <b>'+r.errors+'</b></span><span class="run-stat">'+r.duration_seconds+'s</span></div></div>').join('');
+el.innerHTML=d.map(r=>'<div class="run-item"><div><div class="run-time">'+r.timestamp+'</div></div><div class="run-stats"><span class="run-stat">Found <b>'+r.accounts_found+'</b></span><span class="run-stat">Projects <b>'+(r.projects_found||0)+'</b></span><span class="run-stat">Events <b>'+(r.events_found||0)+'</b></span><span class="run-stat">Qualified <b>'+r.accounts_qualified+'</b></span><span class="run-stat">Notified <b>'+r.accounts_notified+'</b></span><span class="run-stat">Errors <b>'+r.errors+'</b></span><span class="run-stat">'+r.duration_seconds+'s</span></div></div>').join('');
 }).catch(e=>console.error(e));
 }
 loadData();setInterval(loadData,30000);
@@ -243,6 +272,8 @@ def _db():
 def api_stats():
     db = _db()
     cur = db.cursor()
+    from datetime import datetime as _dt
+    now = _dt.now(timezone.utc).isoformat()
 
     cur.execute("SELECT COUNT(*) FROM accounts")
     total = cur.fetchone()[0]
@@ -255,6 +286,27 @@ def api_stats():
 
     cur.execute("SELECT COUNT(*) FROM projects")
     projects_count = cur.fetchone()[0]
+
+    cur.execute("SELECT COUNT(*) FROM events WHERE deadline > ?", (now,))
+    events_upcoming = cur.fetchone()[0]
+
+    cur.execute(
+        "SELECT COUNT(*) FROM events WHERE event_type = 'hackathon' AND deadline > ?",
+        (now,),
+    )
+    hackathons = cur.fetchone()[0]
+
+    cur.execute(
+        "SELECT COUNT(*) FROM events WHERE event_type = 'meme_contest' AND deadline > ?",
+        (now,),
+    )
+    meme_contests = cur.fetchone()[0]
+
+    cur.execute(
+        "SELECT COUNT(*) FROM events WHERE event_type = 'video_contest' AND deadline > ?",
+        (now,),
+    )
+    video_contests = cur.fetchone()[0]
 
     cur.execute("SELECT COUNT(*) FROM accounts WHERE has_website = 0 AND final_score > 0")
     no_website = cur.fetchone()[0]
@@ -288,6 +340,10 @@ def api_stats():
         "qualified": qualified,
         "notified": notified,
         "projects_count": projects_count,
+        "events_upcoming": events_upcoming,
+        "hackathons": hackathons,
+        "meme_contests": meme_contests,
+        "video_contests": video_contests,
         "no_website": no_website,
         "last_run": last_run,
         "last_run_short": last_run_short,
@@ -366,10 +422,39 @@ def api_runs():
     db = _db()
     db.row_factory = sqlite3.Row
     cur = db.cursor()
-    cur.execute("SELECT id, timestamp, accounts_found, accounts_qualified, accounts_notified, projects_found, errors, duration_seconds FROM runs ORDER BY id DESC LIMIT 20")
+    cur.execute("SELECT id, timestamp, accounts_found, accounts_qualified, accounts_notified, projects_found, events_found, events_notified, errors, duration_seconds FROM runs ORDER BY id DESC LIMIT 20")
     rows = cur.fetchall()
     db.close()
     result = [dict(row) for row in rows]
+    return jsonify(result)
+
+
+@app.route("/api/events")
+def api_events():
+    from datetime import datetime as _dt
+    now = _dt.now(timezone.utc).isoformat()
+    db = _db()
+    db.row_factory = sqlite3.Row
+    cur = db.cursor()
+    cur.execute(
+        """SELECT id, event_type, name, username, description, deadline, days_left,
+        prizes, url, followers, notified FROM events
+        WHERE deadline > ? ORDER BY deadline ASC""",
+        (now,),
+    )
+    rows = cur.fetchall()
+    db.close()
+
+    result = []
+    for row in rows:
+        d = dict(row)
+        d["deadline_short"] = ""
+        try:
+            dt = datetime.fromisoformat(d["deadline"])
+            d["deadline_short"] = dt.strftime("%b %d, %H:%M UTC")
+        except Exception:
+            pass
+        result.append(d)
     return jsonify(result)
 
 

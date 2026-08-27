@@ -11,6 +11,9 @@ TELEGRAM_API = "https://api.telegram.org/bot{token}"
 
 
 def _format_message(account: dict) -> str:
+    if account.get("event_type"):
+        return _format_event_message(account)
+
     username = account.get("username", "unknown")
     score = account.get("final_score", 0)
     signals = account.get("signals", "")
@@ -68,6 +71,44 @@ def _format_message(account: dict) -> str:
     lines.append("")
     lines.append(f"https://x.com/{username}")
 
+    return "\n".join(lines)
+
+
+def _html_escape(text: str) -> str:
+    return (
+        str(text)
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+    )
+
+
+def _format_event_message(event: dict) -> str:
+    etype = event.get("event_type", "contest")
+    etype_labels = {
+        "hackathon": "Hackathon",
+        "meme_contest": "Meme Contest",
+        "video_contest": "Video Contest",
+        "contest": "Contest",
+    }
+    label = etype_labels.get(etype, "Contest")
+    name = _html_escape(event.get("name", "Unknown"))
+    username = event.get("username", "unknown")
+    days_left = event.get("days_left", "?")
+    prizes = _html_escape(event.get("prizes", ""))
+
+    lines = [
+        f"Upcoming {label}: {name}",
+        f"",
+        f"Posted by @{username}",
+        f"Deadline: {days_left} days left",
+    ]
+    if prizes:
+        lines.append(f"Prizes: {prizes}")
+    url = _html_escape(event.get("url", ""))
+    if url:
+        lines.append("")
+        lines.append(url)
     return "\n".join(lines)
 
 

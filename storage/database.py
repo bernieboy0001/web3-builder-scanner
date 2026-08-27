@@ -61,6 +61,8 @@ CREATE TABLE IF NOT EXISTS runs (
     accounts_qualified INTEGER,
     accounts_notified INTEGER,
     projects_found INTEGER DEFAULT 0,
+    events_found INTEGER DEFAULT 0,
+    events_notified INTEGER DEFAULT 0,
     errors INTEGER,
     duration_seconds REAL
 );
@@ -70,6 +72,24 @@ CREATE TABLE IF NOT EXISTS errors (
     username TEXT,
     message TEXT,
     timestamp TEXT
+);
+
+CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_type TEXT,
+    name TEXT,
+    username TEXT,
+    description TEXT,
+    deadline TEXT,
+    days_left REAL,
+    prizes TEXT,
+    url TEXT,
+    followers INTEGER DEFAULT 0,
+    discovered_at TEXT,
+    signals TEXT,
+    tweet_text TEXT,
+    notified INTEGER DEFAULT 0,
+    UNIQUE(name, username, deadline)
 );
 """
 
@@ -91,6 +111,14 @@ async def init_db():
                 pass
         try:
             await db.execute("ALTER TABLE runs ADD COLUMN projects_found INTEGER DEFAULT 0")
+        except Exception:
+            pass
+        try:
+            await db.execute("ALTER TABLE runs ADD COLUMN events_found INTEGER DEFAULT 0")
+        except Exception:
+            pass
+        try:
+            await db.execute("ALTER TABLE runs ADD COLUMN events_notified INTEGER DEFAULT 0")
         except Exception:
             pass
         await db.commit()
@@ -193,6 +221,55 @@ async def save_project(project: dict):
         await db.commit()
 
 
+async def save_event(event: dict):
+    import json
+
+    async with aiosqlite.connect(settings.db_path) as db:
+        await db.execute(
+            """INSERT OR IGNORE INTO events
+            (event_type, name, username, description, deadline, days_left,
+             prizes, url, followers, discovered_at, signals, tweet_text, notified)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                event.get("event_type", ""),
+                event.get("name", ""),
+                event.get("username", ""),
+                event.get("description", ""),
+                event.get("deadline", ""),
+                event.get("days_left", 0),
+                event.get("prizes", ""),
+                event.get("url", ""),
+                event.get("followers", 0),
+                event.get("discovered_at", ""),
+                json.dumps(event.get("signals", [])),
+                event.get("tweet_text", ""),
+                1 if event.get("notified") else 0,
+            ),
+        )
+        await db.commit()
+
+
+async def mark_event_notified(event_id: int):
+    async with aiosqlite.connect(settings.db_path) as db:
+        await db.execute(
+            "UPDATE events SET notified = 1 WHERE id = ?", (event_id,)
+        )
+        await db.commit()
+
+
+async def get_upcoming_events() -> list[tuple]:
+    from datetime import datetime, timezone
+
+    async with aiosqlite.connect(settings.db_path) as db:
+        cursor = await db.execute(
+            """SELECT id, event_type, name, username, deadline, days_left, prizes, url
+            FROM events WHERE deadline > ? AND notified = 0 ORDER BY deadline ASC""",
+            (datetime.now(timezone.utc).isoformat(),),
+        )
+        rows = await cursor.fetchall()
+        return [tuple(row) for row in rows]
+
+
 async def mark_notified(username: str):
     async with aiosqlite.connect(settings.db_path) as db:
         await db.execute(
@@ -226,14 +303,16 @@ async def save_run(run_data: dict):
     async with aiosqlite.connect(settings.db_path) as db:
         await db.execute(
             """INSERT INTO runs (timestamp, accounts_found, accounts_qualified,
-            accounts_notified, projects_found, errors, duration_seconds)
-            VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            accounts_notified, projects_found, events_found, events_notified, errors, duration_seconds)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 run_data.get("timestamp", ""),
                 run_data.get("accounts_found", 0),
                 run_data.get("accounts_qualified", 0),
                 run_data.get("accounts_notified", 0),
                 run_data.get("projects_found", 0),
+                run_data.get("events_found", 0),
+                run_data.get("events_notified", 0),
                 run_data.get("errors", 0),
                 run_data.get("duration_seconds", 0),
             ),
@@ -242,6 +321,8 @@ async def save_run(run_data: dict):
 
 
 async def get_stats() -> dict:
+    from datetime import datetime, timezone
+
     async with aiosqlite.connect(settings.db_path) as db:
         cursor = await db.execute("SELECT COUNT(*) FROM accounts")
         total = (await cursor.fetchone())[0]
@@ -251,6 +332,21 @@ async def get_stats() -> dict:
 
         cursor = await db.execute("SELECT COUNT(*) FROM accounts WHERE notified = 1")
         notified = (await cursor.fetchone())[0]
+
+        cursor = await db.execute("SELECT COUNT(*) FROM projects")
+        projects = (await cursor.fetchone())[0]
+
+        cursor = await db.execute(
+            "SELECT COUNT(*) FROM events WHERE deadline > ?",
+            (datetime.now(timezone.utc).isoformat(),),
+        )
+        events_upcoming = (await cursor.fetchone())[0]
+
+        cursor = await db.execute(
+            "SELECT COUNT(*) FROM events WHERE event_type = 'hackathon' AND deadline > ?",
+            (datetime.now(timezone.utc).isoformat(),),
+        )
+        hackathons = (await cursor.fetchone())[0]
 
         cursor = await db.execute(
             "SELECT timestamp FROM runs ORDER BY id DESC LIMIT 1"
@@ -262,5 +358,8 @@ async def get_stats() -> dict:
             "total_accounts": total,
             "qualified": qualified,
             "notified": notified,
+            "projects": projects,
+            "events_upcoming": events_upcoming,
+            "hackathons": hackathons,
             "last_run": last_run,
         }

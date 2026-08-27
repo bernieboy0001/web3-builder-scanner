@@ -12,28 +12,58 @@ from config import settings
 logger = logging.getLogger(__name__)
 
 SEARCH_QUERIES = [
-    "#buildinpublic deployed",
-    "#buildinpublic shipped",
-    "#buildinpublic launched",
-    "solidity contract deployed",
-    "rust solana program deployed",
-    "ERC-20 token live",
-    "ERC-721 NFT contract",
-    "my dapp is live",
-    "just deployed to mainnet",
-    "smart contract verified",
-    "hackathon submission web3",
-    "building protocol onchain",
-    "ZK proof circuit built",
-    "moved contract to base",
-    "contracts deployed arbitrum",
-    "first commit my dapp",
+    "new token launched",
+    "token launch today",
+    "presale live",
+    "IDO going live",
+    "just deployed token",
+    "new memecoin",
+    "meme coin launched",
+    "new crypto project launch",
+    "mainnet launch",
+    "testnet live",
+    "new NFT mint live",
+    "contract deployed base",
+    "contract deployed solana",
+    "new DeFi protocol live",
+    "token listed DEX",
+    "this token launched",
+    "new project announcement crypto",
+    "crypto project update",
+    "existin project roadmap",
+    "project milestones crypto",
+]
+
+EVENT_SEARCH_QUERIES = [
+    "hackathon deadline",
+    "hackathon submissions open",
+    "hackathon registration open",
+    "hackathon late deadline",
+    "hackathon until",
+    "hackathon apply before",
+    "hackathon entry deadline",
+    "hackathon prize pool",
+    "meme contest",
+    "meme competition",
+    "meme contest deadline",
+    "meme competition ends",
+    "create a meme contest crypto",
+    "best meme wins",
+    "video contest crypto",
+    "video competition",
+    "video contest deadline",
+    "reels contest crypto",
+    "shorts contest crypto",
+    "make a video win prizes crypto",
+    "content creator contest crypto",
 ]
 
 MIN_FOLLOWERS = 0
 MAX_FOLLOWERS = 1000
+MAX_EVENT_FOLLOWERS = 100000
 MIN_ACCOUNT_AGE_DAYS = 90
 MIN_TWEET_COUNT = 20
+MIN_EVENT_TWEET_COUNT = 5
 
 
 def _parse_cookies(path: str) -> list[dict]:
@@ -162,3 +192,55 @@ async def discover_builders() -> list[dict]:
 
     logger.info(f"Discovered {len(seen_users)} unique accounts")
     return list(seen_users.values())
+
+
+async def discover_events() -> list[dict]:
+    """Search Twitter for hackathons, meme contests, and video contests with deadlines."""
+    client = await _init_client()
+    seen_tweets: dict[str, dict] = {}
+
+    for query in EVENT_SEARCH_QUERIES:
+        try:
+            logger.info(f"Event search: {query}")
+            tweets = await client.search_tweet(query, "Latest", count=20)
+
+            for tweet in tweets:
+                user = tweet.user
+                if not user:
+                    continue
+
+                followers = getattr(user, "followers_count", 0) or 0
+                if followers > MAX_EVENT_FOLLOWERS:
+                    continue
+
+                tweet_count = getattr(user, "statuses_count", 0) or 0
+                if tweet_count < MIN_EVENT_TWEET_COUNT:
+                    continue
+
+                tweet_id = getattr(tweet, "id", None) or tweet.text[:100]
+                if tweet_id in seen_tweets:
+                    continue
+
+                username = _extract_username(user)
+                seen_tweets[tweet_id] = {
+                    "username": username,
+                    "user_id": getattr(user, "id", None),
+                    "name": getattr(user, "name", ""),
+                    "description": getattr(user, "description", ""),
+                    "followers": followers,
+                    "following": getattr(user, "following_count", 0) or 0,
+                    "tweet_count": tweet_count,
+                    "profile_url": f"https://x.com/{username}",
+                    "event_tweet": tweet.text[:500] if tweet.text else "",
+                    "discovered_via": query,
+                    "discovered_at": datetime.now(timezone.utc).isoformat(),
+                }
+
+            await asyncio.sleep(3)
+
+        except Exception as e:
+            logger.warning(f"Event search failed for '{query}': {e}")
+            await asyncio.sleep(5)
+
+    logger.info(f"Discovered {len(seen_tweets)} event tweets")
+    return list(seen_tweets.values())
