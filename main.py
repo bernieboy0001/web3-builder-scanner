@@ -209,6 +209,9 @@ async def run_pipeline():
                 "project_description": projects[0]["description"] if projects else "",
                 "project_chain": projects[0]["chain"] if projects else "",
                 "project_type": projects[0]["project_type"] if projects else "",
+                "is_launch": projects[0].get("is_launch", 0) if projects else 0,
+                "is_existing": projects[0].get("is_existing", 0) if projects else 0,
+                "is_hiring": projects[0].get("is_hiring", 0) if projects else 0,
             }
             await save_account(username, save_data)
 

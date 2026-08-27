@@ -25,6 +25,16 @@ EXISTING_PROJECT_KEYWORDS = [
     "audit", "integration", "partnership", "upgrade", "v2", "v3",
     "new feature", "update", "rebrand", "airdrop",
 ]
+HIRING_KEYWORDS = [
+    "we are hiring", "we're hiring", "we are looking for", "we're looking for",
+    "looking for developers", "looking for a developer", "looking for devs",
+    "looking for engineers", "hiring developers", "hiring devs", "hiring engineers",
+    "need developers", "need a developer", "need devs", "need an engineer",
+    "seeking developers", "seeking a developer", "join our team", "open roles",
+    "open position", "opening for", "contributors wanted", "builders wanted",
+    "developers wanted", "devs wanted", "looking for contributors",
+    "want to build together", "recruiting developers",
+]
 PROJECT_TYPE_KEYWORDS = {
     "DeFi": ["defi", "dex", "amm", "lending", "borrowing", "yield", "farming", "staking", "swap", "liquidity"],
     "NFT": ["nft", "erc-721", "erc-1155", "collection", "mint", "pfp", "art"],
@@ -46,7 +56,8 @@ def extract_projects_from_tweet(tweet_text: str, username: str, followers: int) 
 
     is_launch = any(kw in text_lower for kw in LAUNCH_KEYWORDS)
     is_existing = any(kw in text_lower for kw in EXISTING_PROJECT_KEYWORDS)
-    if not is_launch and not is_existing:
+    is_hiring = any(kw in text_lower for kw in HIRING_KEYWORDS)
+    if not is_launch and not is_existing and not is_hiring:
         return projects
 
     chains = []
@@ -104,7 +115,7 @@ def extract_projects_from_tweet(tweet_text: str, username: str, followers: int) 
             project_type = ptype
             break
 
-    if chains or contract_address or github_url:
+    if chains or contract_address or github_url or is_hiring:
         name = _extract_project_name(tweet_text, username)
         score = 0
         signals = []
@@ -114,6 +125,9 @@ def extract_projects_from_tweet(tweet_text: str, username: str, followers: int) 
         if is_existing:
             score += 15
             signals.append("project activity/update")
+        if is_hiring:
+            score += 20
+            signals.append("searching for developers")
         if contract_address:
             score += 25
             signals.append("contract address shared")
@@ -141,6 +155,7 @@ def extract_projects_from_tweet(tweet_text: str, username: str, followers: int) 
             "signals": signals,
             "is_launch": 1 if is_launch else 0,
             "is_existing": 1 if is_existing else 0,
+            "is_hiring": 1 if is_hiring else 0,
             "tweet_text": tweet_text[:500],
         })
 

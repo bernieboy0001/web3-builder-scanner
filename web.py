@@ -131,10 +131,10 @@ tr:hover td{background:#16162a}
 <div class="stat-value" id="notified">-</div>
 <div class="stat-sub">sent to Telegram</div>
 </div>
-<div class="stat-card cyan">
-<div class="stat-label">No Website</div>
-<div class="stat-value" id="no-website-count">-</div>
-<div class="stat-sub">builders needing sites</div>
+<div class="stat-card orange">
+<div class="stat-label">Project Leads</div>
+<div class="stat-value" id="leads-count">-</div>
+<div class="stat-sub">launching or hiring</div>
 </div>
 <div class="stat-card red">
 <div class="stat-label">Status</div>
@@ -146,7 +146,7 @@ tr:hover td{background:#16162a}
 <div class="tabs">
 <button class="tab active" onclick="switchTab(this,'projects')">New Projects</button>
 <button class="tab" onclick="switchTab(this,'builders')">Top Builders</button>
-<button class="tab" onclick="switchTab(this,'nowebsite')">No Website Yet</button>
+<button class="tab" onclick="switchTab(this,'leads')">Launching & Hiring</button>
 <button class="tab" onclick="switchTab(this,'events')">Hackathons & Contests</button>
 <button class="tab" onclick="switchTab(this,'runs')">Run History</button>
 </div>
@@ -166,11 +166,11 @@ tr:hover td{background:#16162a}
 <div id="builders-list"><div class="empty">Loading...</div></div>
 </div>
 
-<div id="tab-nowebsite" class="section" style="display:none;border-radius:0 0 12px 12px;margin-top:-1px">
+<div id="tab-leads" class="section" style="display:none;border-radius:0 0 12px 12px;margin-top:-1px">
 <div class="section-header">
-<h2>Builders Without Websites <span class="badge orange" id="nw-badge">0</span></h2>
+<h2>Project Leads: Launches & Hiring <span class="badge orange" id="leads-badge">0</span></h2>
 </div>
-<div id="nowebsite-list"><div class="empty">Loading...</div></div>
+<div id="leads-list"><div class="empty">Loading...</div></div>
 </div>
 
 <div id="tab-events" class="section" style="display:none;border-radius:0 0 12px 12px;margin-top:-1px">
@@ -216,7 +216,7 @@ document.getElementById('events-count').textContent=d.events_upcoming;
 document.getElementById('hackathons-count').textContent=d.hackathons;
 document.getElementById('qualified').textContent=d.qualified;
 document.getElementById('notified').textContent=d.notified;
-document.getElementById('no-website-count').textContent=d.no_website;
+document.getElementById('leads-count').textContent=d.leads;
 document.getElementById('last-run').textContent=d.last_run_short||d.last_run;
 }).catch(e=>console.error(e));
 loadEvents();
@@ -236,12 +236,12 @@ el.innerHTML='<table><tr><th>Builder</th><th>Score</th><th>Followers</th><th>Pro
 d.map(a=>'<tr><td><a class="username" href="'+a.profile_url+'" target="_blank">@'+a.username+'</a><br><span style="color:#6b7280;font-size:12px">'+(a.name||'')+'</span></td><td><b>'+a.final_score+'</b>/100<span class="score-bar"><span class="score-fill '+scoreClass(a.final_score)+'" style="width:'+a.final_score+'%"></span></span></td><td>'+a.followers+'</td><td>'+(a.project_name?'<span style="color:#a78bfa;font-size:13px">'+a.project_name+'</span><br><span class="chain-tag '+chainClass(a.project_chain)+'" style="font-size:10px">'+a.project_chain+'</span>':'<span style="color:#6b7280;font-size:12px">-</span>')+'</td><td>'+((a.signals_list||[]).slice(0,3).map(s=>'<span class="signal-tag">'+s+'</span>').join(''))+'</td><td><span style="font-size:12px">'+(a.llm_verdict||'-')+'</span></td></tr>'
 ).join('')+'</table>';
 }).catch(e=>console.error(e));
-fetch('/api/no-website').then(r=>r.json()).then(d=>{
-document.getElementById('nw-badge').textContent=d.length;
-const el=document.getElementById('nowebsite-list');
-if(!d.length){el.innerHTML='<div class="empty">No no-website builders found yet.</div>';return}
-el.innerHTML='<table><tr><th>Builder</th><th>Score</th><th>Followers</th><th>Bio</th><th>Signals</th><th>Action</th></tr>'+
-d.map(a=>'<tr><td><a class="username" href="'+a.profile_url+'" target="_blank">@'+a.username+'</a><br><span style="color:#6b7280;font-size:12px">'+(a.name||'')+'</span></td><td><b>'+a.final_score+'</b>/100<span class="score-bar"><span class="score-fill '+scoreClass(a.final_score)+'" style="width:'+a.final_score+'%"></span></span></td><td>'+a.followers+'</td><td><span style="color:#6b7280;font-size:12px;max-width:250px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(a.description||'').substring(0,100)+'</span></td><td>'+((a.signals_list||[]).slice(0,3).map(s=>'<span class="signal-tag">'+s+'</span>').join(''))+'</td><td><a href="https://x.com/'+a.username+'" target="_blank" style="color:#3b82f6;text-decoration:none;font-size:12px">View Profile</a></td></tr>'
+fetch('/api/leads').then(r=>r.json()).then(d=>{
+document.getElementById('leads-badge').textContent=d.length;
+const el=document.getElementById('leads-list');
+if(!d.length){el.innerHTML='<div class="empty">No launching or hiring projects found yet.</div>';return}
+el.innerHTML='<table><tr><th>Project</th><th>Category</th><th>Builder</th><th>Score</th><th>Signals</th><th>Link</th></tr>'+
+d.map(a=>'<tr><td><span style="color:#a78bfa;font-weight:600">'+((a.project_name||'').replace('@'+a.username+'\u0027s project','')||a.name||a.username)+'</span><br><span style="color:#6b7280;font-size:12px;max-width:280px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(a.project_description||'').substring(0,90)+'</span></td><td>'+(a.is_launch?'<span class="badge green">New Launch</span> ':'')+(a.is_hiring?'<span class="badge orange">Hiring</span>':'')+'</td><td><a class="username" href="https://x.com/'+a.username+'" target="_blank">@'+a.username+'</a></td><td><b>'+a.final_score+'</b>/100<span class="score-bar"><span class="score-fill '+scoreClass(a.final_score)+'" style="width:'+a.final_score+'%"></span></span></td><td>'+((a.signals_list||[]).slice(0,3).map(s=>'<span class="signal-tag">'+s+'</span>').join(''))+'</td><td>'+(a.project_chain?'<span class="chain-tag '+chainClass(a.project_chain)+'" style="font-size:10px">'+a.project_chain+'</span>':'')+' '+(a.project_url?'<a href="'+a.project_url+'" target="_blank" style="color:#3b82f6;text-decoration:none;font-size:12px">Link</a>':'')+' <a href="https://x.com/'+a.username+'" target="_blank" style="color:#94a3b8;text-decoration:none;font-size:12px">X</a></td></tr>'
 ).join('')+'</table>';
 }).catch(e=>console.error(e));
 fetch('/api/runs').then(r=>r.json()).then(d=>{
@@ -308,8 +308,8 @@ def api_stats():
     )
     video_contests = cur.fetchone()[0]
 
-    cur.execute("SELECT COUNT(*) FROM accounts WHERE has_website = 0 AND final_score > 0")
-    no_website = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) FROM accounts WHERE is_launch = 1 OR is_hiring = 1")
+    leads = cur.fetchone()[0]
 
     cur.execute("SELECT timestamp FROM runs ORDER BY id DESC LIMIT 1")
     row = cur.fetchone()
@@ -344,7 +344,7 @@ def api_stats():
         "hackathons": hackathons,
         "meme_contests": meme_contests,
         "video_contests": video_contests,
-        "no_website": no_website,
+        "leads": leads,
         "last_run": last_run,
         "last_run_short": last_run_short,
         "last_run_ago": last_run_ago,
@@ -392,14 +392,14 @@ def api_projects():
     return jsonify(result)
 
 
-@app.route("/api/no-website")
-def api_no_website():
+@app.route("/api/leads")
+def api_leads():
     db = _db()
     db.row_factory = sqlite3.Row
     cur = db.cursor()
     cur.execute(
         """SELECT * FROM accounts
-        WHERE has_website = 0 AND final_score > 0
+        WHERE is_launch = 1 OR is_hiring = 1
         ORDER BY final_score DESC LIMIT 100"""
     )
     rows = cur.fetchall()

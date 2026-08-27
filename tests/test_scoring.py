@@ -4,6 +4,35 @@ import pytest
 from scoring.signals import score_content
 from scoring.thresholds import compute_profile_score, compute_engagement_score, compute_final_score
 from enrichment.profile import extract_bio_signals
+from enrichment.projects import extract_projects_from_tweet, has_website
+
+
+class TestProjectExtraction:
+    def test_launch_detection(self):
+        projects = extract_projects_from_tweet(
+            "Our token just launched on Ethereum! 0x1234567890abcdef1234567890abcdef12345678",
+            "project",
+            100,
+        )
+        assert len(projects) == 1
+        assert projects[0]["is_launch"] == 1
+
+    def test_hiring_detection(self):
+        projects = extract_projects_from_tweet(
+            "We are hiring developers to join our team! Building the future of DeFi.",
+            "project",
+            200,
+        )
+        assert len(projects) == 1
+        assert projects[0]["is_hiring"] == 1
+        assert any("searching for developers" in s for s in projects[0]["signals"])
+
+    def test_not_launch_or_hiring_returns_empty(self):
+        assert extract_projects_from_tweet("gm everyone", "project", 100) == []
+
+    def test_has_website(self):
+        assert has_website({"description": "check out https://myproject.xyz"}) is True
+        assert has_website({"description": "just building, no site yet"}) is False
 
 
 class TestContentScoring:

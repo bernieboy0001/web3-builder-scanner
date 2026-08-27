@@ -33,7 +33,10 @@ CREATE TABLE IF NOT EXISTS accounts (
     project_name TEXT,
     project_description TEXT,
     project_chain TEXT,
-    project_type TEXT
+    project_type TEXT,
+    is_launch INTEGER DEFAULT 0,
+    is_existing INTEGER DEFAULT 0,
+    is_hiring INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS projects (
@@ -104,6 +107,9 @@ async def init_db():
             ("project_description", "TEXT"),
             ("project_chain", "TEXT"),
             ("project_type", "TEXT"),
+            ("is_launch", "INTEGER DEFAULT 0"),
+            ("is_existing", "INTEGER DEFAULT 0"),
+            ("is_hiring", "INTEGER DEFAULT 0"),
         ]:
             try:
                 await db.execute(f"ALTER TABLE accounts ADD COLUMN {col} {typ}")
@@ -157,9 +163,10 @@ async def save_account(username: str, data: dict):
              final_score, qualifies, notified, profile_score, content_score,
              engagement_score, onchain_score, github_score, llm_score, llm_verdict,
              signals, github_data, onchain_data, discovered_via,
-             has_website, project_url, project_name, project_description, project_chain, project_type)
+             has_website, project_url, project_name, project_description, project_chain, project_type,
+             is_launch, is_existing, is_hiring)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 username,
                 data.get("name", ""),
@@ -188,6 +195,9 @@ async def save_account(username: str, data: dict):
                 data.get("project_description", ""),
                 data.get("project_chain", ""),
                 data.get("project_type", ""),
+                1 if data.get("is_launch") else 0,
+                1 if data.get("is_existing") else 0,
+                1 if data.get("is_hiring") else 0,
             ),
         )
         await db.commit()
