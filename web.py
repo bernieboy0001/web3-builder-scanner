@@ -8,6 +8,14 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
+
+@app.errorhandler(Exception)
+def handle_error(e):
+    import traceback
+    tb = traceback.format_exc()
+    logger.error(f"API error: {e}\n{tb}")
+    return jsonify({"error": str(e), "traceback": tb.splitlines()[-5:]}), 500
+
 DASHBOARD_HTML = """
 <!DOCTYPE html>
 <html lang="en">
@@ -357,7 +365,8 @@ def api_runs():
     db = _db()
     db.row_factory = sqlite3.Row
     cur = db.cursor()
-    cur.execute("SELECT * FROM runs ORDER BY id DESC LIMIT 20")
+    cur.execute("SELECT id, timestamp, accounts_found, accounts_qualified, accounts_notified, projects_found, errors, duration_seconds FROM runs ORDER BY id DESC LIMIT 20")
     rows = cur.fetchall()
     db.close()
-    return jsonify([dict(row) for row in rows])
+    result = [dict(row) for row in rows]
+    return jsonify(result)
