@@ -70,6 +70,22 @@ CREATE TABLE IF NOT EXISTS runs (
 async def init_db():
     async with aiosqlite.connect(settings.db_path) as db:
         await db.executescript(SCHEMA)
+        for col, typ in [
+            ("has_website", "INTEGER DEFAULT 0"),
+            ("project_url", "TEXT"),
+            ("project_name", "TEXT"),
+            ("project_description", "TEXT"),
+            ("project_chain", "TEXT"),
+            ("project_type", "TEXT"),
+        ]:
+            try:
+                await db.execute(f"ALTER TABLE accounts ADD COLUMN {col} {typ}")
+            except Exception:
+                pass
+        try:
+            await db.execute("ALTER TABLE runs ADD COLUMN projects_found INTEGER DEFAULT 0")
+        except Exception:
+            pass
         await db.commit()
         logger.info("Database initialized")
 
@@ -188,13 +204,14 @@ async def save_run(run_data: dict):
     async with aiosqlite.connect(settings.db_path) as db:
         await db.execute(
             """INSERT INTO runs (timestamp, accounts_found, accounts_qualified,
-            accounts_notified, errors, duration_seconds)
-            VALUES (?, ?, ?, ?, ?, ?)""",
+            accounts_notified, projects_found, errors, duration_seconds)
+            VALUES (?, ?, ?, ?, ?, ?, ?)""",
             (
                 run_data.get("timestamp", ""),
                 run_data.get("accounts_found", 0),
                 run_data.get("accounts_qualified", 0),
                 run_data.get("accounts_notified", 0),
+                run_data.get("projects_found", 0),
                 run_data.get("errors", 0),
                 run_data.get("duration_seconds", 0),
             ),
