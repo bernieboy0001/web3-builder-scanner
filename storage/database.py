@@ -130,7 +130,8 @@ async def save_account(username: str, data: dict):
              engagement_score, onchain_score, github_score, llm_score, llm_verdict,
              signals, github_data, onchain_data, discovered_via,
              has_website, project_url, project_name, project_description, project_chain, project_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 username,
                 data.get("name", ""),
