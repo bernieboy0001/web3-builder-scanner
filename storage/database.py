@@ -64,6 +64,13 @@ CREATE TABLE IF NOT EXISTS runs (
     errors INTEGER,
     duration_seconds REAL
 );
+
+CREATE TABLE IF NOT EXISTS errors (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT,
+    message TEXT,
+    timestamp TEXT
+);
 """
 
 
@@ -88,6 +95,20 @@ async def init_db():
             pass
         await db.commit()
         logger.info("Database initialized")
+
+
+async def log_error(username: str, message: str):
+    from datetime import datetime, timezone
+
+    try:
+        async with aiosqlite.connect(settings.db_path) as db:
+            await db.execute(
+                "INSERT INTO errors (username, message, timestamp) VALUES (?, ?, ?)",
+                (username, message[:500], datetime.now(timezone.utc).isoformat()),
+            )
+            await db.commit()
+    except Exception:
+        pass
 
 
 async def account_exists(username: str) -> bool:

@@ -19,6 +19,7 @@ from scoring.thresholds import compute_profile_score, compute_engagement_score, 
 from notification.telegram import send_telegram
 from storage.database import (
     init_db, save_account, save_project, mark_notified, save_run, get_stats, is_notified,
+    log_error,
 )
 
 logging.basicConfig(
@@ -190,6 +191,7 @@ async def run_pipeline():
         except Exception as e:
             errors += 1
             logger.error(f"  Error processing @{username}: {e}")
+            await log_error(username, str(e))
 
     duration = time.time() - start
     run_data = {

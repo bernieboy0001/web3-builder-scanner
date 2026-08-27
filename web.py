@@ -371,3 +371,15 @@ def api_runs():
     db.close()
     result = [dict(row) for row in rows]
     return jsonify(result)
+
+
+@app.route("/api/errors")
+def api_errors():
+    db = _db()
+    db.row_factory = sqlite3.Row
+    cur = db.cursor()
+    cur.execute("SELECT username, message, timestamp FROM errors ORDER BY id DESC LIMIT 50")
+    rows = cur.fetchall()
+    db.close()
+    result = [dict(row) for row in rows]
+    return jsonify(result)
