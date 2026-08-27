@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     max_accounts_per_run: int = 50
     github_token: str = ""
     db_path: str = "scanner.db"
+    llm_min_score: int = 35
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

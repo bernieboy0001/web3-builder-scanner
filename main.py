@@ -137,8 +137,30 @@ async def run_pipeline():
             }
 
             logger.info(f"  Scoring @{username}...")
-            llm_result = await llm_judge(account_enriched)
-            await asyncio.sleep(1)
+            deterministic_scores = {
+                "profile": profile_result["score"],
+                "content": content_result["score"],
+                "engagement": engagement_result["score"],
+                "onchain": onchain_score_data["score"],
+                "github": github_score_data["score"],
+            }
+            deterministic_estimate = round(
+                deterministic_scores["profile"] * 0.10
+                + deterministic_scores["content"] * 0.25
+                + deterministic_scores["engagement"] * 0.15
+                + deterministic_scores["onchain"] * 0.30
+                + deterministic_scores["github"] * 0.20,
+                1,
+            )
+
+            llm_result = {
+                "llm_score": None,
+                "llm_verdict": "skipped",
+                "llm_reasoning": "Deterministic score below LLM threshold",
+            }
+            if deterministic_estimate >= settings.llm_min_score:
+                llm_result = await llm_judge(account_enriched)
+                await asyncio.sleep(1)
 
             final = compute_final_score(
                 profile_result,
