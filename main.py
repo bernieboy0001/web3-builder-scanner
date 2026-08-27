@@ -227,11 +227,9 @@ def main():
     scheduler.start()
     logger.info("Scheduler started - will run every hour")
 
-    logger.info("Running initial pipeline scan...")
-    try:
-        scheduled_run()
-    except Exception as e:
-        logger.error(f"Initial run failed: {e}")
+    import threading
+    logger.info("Scheduling initial pipeline scan in background...")
+    threading.Thread(target=scheduled_run, daemon=True).start()
 
     app = create_app()
     port = int(os.environ.get("PORT", 5000))
