@@ -1,5 +1,6 @@
 import json
 import logging
+import sqlite3
 from datetime import datetime, timezone
 
 from flask import Flask, jsonify, render_template_string
