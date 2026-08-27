@@ -27,7 +27,31 @@ CREATE TABLE IF NOT EXISTS accounts (
     signals TEXT,
     github_data TEXT,
     onchain_data TEXT,
-    discovered_via TEXT
+    discovered_via TEXT,
+    has_website INTEGER DEFAULT 0,
+    project_url TEXT,
+    project_name TEXT,
+    project_description TEXT,
+    project_chain TEXT,
+    project_type TEXT
+);
+
+CREATE TABLE IF NOT EXISTS projects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT,
+    username TEXT,
+    description TEXT,
+    chain TEXT,
+    project_type TEXT,
+    url TEXT,
+    github_url TEXT,
+    contract_address TEXT,
+    discovered_at TEXT,
+    score REAL,
+    signals TEXT,
+    notified INTEGER DEFAULT 0,
+    tweet_text TEXT,
+    UNIQUE(name, username)
 );
 
 CREATE TABLE IF NOT EXISTS runs (
@@ -36,6 +60,7 @@ CREATE TABLE IF NOT EXISTS runs (
     accounts_found INTEGER,
     accounts_qualified INTEGER,
     accounts_notified INTEGER,
+    projects_found INTEGER DEFAULT 0,
     errors INTEGER,
     duration_seconds REAL
 );
@@ -66,8 +91,9 @@ async def save_account(username: str, data: dict):
             (username, name, description, followers, discovered_at, first_seen, last_seen,
              final_score, qualifies, notified, profile_score, content_score,
              engagement_score, onchain_score, github_score, llm_score, llm_verdict,
-             signals, github_data, onchain_data, discovered_via)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+             signals, github_data, onchain_data, discovered_via,
+             has_website, project_url, project_name, project_description, project_chain, project_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 username,
                 data.get("name", ""),
@@ -90,6 +116,40 @@ async def save_account(username: str, data: dict):
                 json.dumps(data.get("github", {})),
                 json.dumps(data.get("onchain", {})),
                 data.get("discovered_via", ""),
+                1 if data.get("has_website") else 0,
+                data.get("project_url", ""),
+                data.get("project_name", ""),
+                data.get("project_description", ""),
+                data.get("project_chain", ""),
+                data.get("project_type", ""),
+            ),
+        )
+        await db.commit()
+
+
+async def save_project(project: dict):
+    import json
+
+    async with aiosqlite.connect(settings.db_path) as db:
+        await db.execute(
+            """INSERT OR IGNORE INTO projects
+            (name, username, description, chain, project_type, url, github_url,
+             contract_address, discovered_at, score, signals, notified, tweet_text)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                project.get("name", ""),
+                project.get("username", ""),
+                project.get("description", ""),
+                project.get("chain", ""),
+                project.get("project_type", ""),
+                project.get("url", ""),
+                project.get("github_url", ""),
+                project.get("contract_address", ""),
+                project.get("discovered_at", ""),
+                project.get("score", 0),
+                json.dumps(project.get("signals", [])),
+                1 if project.get("notified") else 0,
+                project.get("tweet_text", ""),
             ),
         )
         await db.commit()

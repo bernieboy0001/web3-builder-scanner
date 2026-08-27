@@ -12,12 +12,13 @@ from discovery.twitter import discover_builders
 from enrichment.profile import extract_bio_signals
 from enrichment.github import get_github_data
 from enrichment.onchain import get_onchain_data
+from enrichment.projects import extract_projects_from_tweet, has_website
 from scoring.signals import score_content
 from scoring.llm_judge import llm_judge
 from scoring.thresholds import compute_profile_score, compute_engagement_score, compute_final_score
 from notification.telegram import send_telegram
 from storage.database import (
-    init_db, save_account, mark_notified, save_run, get_stats, is_notified,
+    init_db, save_account, save_project, mark_notified, save_run, get_stats, is_notified,
 )
 
 logging.basicConfig(
@@ -51,12 +52,20 @@ async def run_pipeline():
     qualified = 0
     notified = 0
     errors = 0
+    projects_found = 0
 
     for i, account in enumerate(accounts[: settings.max_accounts_per_run]):
         username = account["username"]
         logger.info(f"[{i+1}/{len(accounts)}] Processing @{username}...")
 
         try:
+            sample = account.get("sample_tweet", "")
+            projects = extract_projects_from_tweet(sample, username, account.get("followers", 0))
+            for proj in projects:
+                await save_project(proj)
+                projects_found += 1
+                logger.info(f"  PROJECT: {proj['name']} on {proj['chain']} ({proj['project_type']})")
+
             logger.info(f"  Enriching @{username}...")
             bio_signals = extract_bio_signals(account.get("description", ""))
 
@@ -139,6 +148,7 @@ async def run_pipeline():
                 llm_result,
             )
 
+            acct_has_website = has_website(account)
             save_data = {
                 **account,
                 "final_score": final["final_score"],
@@ -150,6 +160,12 @@ async def run_pipeline():
                 "llm_reasoning": llm_result.get("llm_reasoning"),
                 "github": github_data or {},
                 "onchain": onchain_data or {},
+                "has_website": acct_has_website,
+                "project_url": projects[0]["url"] if projects else "",
+                "project_name": projects[0]["name"] if projects else "",
+                "project_description": projects[0]["description"] if projects else "",
+                "project_chain": projects[0]["chain"] if projects else "",
+                "project_type": projects[0]["project_type"] if projects else "",
             }
             await save_account(username, save_data)
 
@@ -181,6 +197,7 @@ async def run_pipeline():
         "accounts_found": len(accounts),
         "accounts_qualified": qualified,
         "accounts_notified": notified,
+        "projects_found": projects_found,
         "errors": errors,
         "duration_seconds": round(duration, 1),
     }
