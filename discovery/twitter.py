@@ -37,12 +37,22 @@ MIN_TWEET_COUNT = 20
 
 
 def _parse_cookies(path: str) -> list[dict]:
+    import os
+
+    env_cookies = os.environ.get("TWITTER_COOKIES_JSON", "")
+    if env_cookies:
+        raw = json.loads(env_cookies)
+        if isinstance(raw, list):
+            return raw
+        if isinstance(raw, dict):
+            return [raw]
+        raise ValueError("TWITTER_COOKIES_JSON must be a JSON array or object")
+
     p = Path(path)
     if not p.exists():
         raise FileNotFoundError(
             f"Cookies file not found: {p}\n"
-            "Export cookies from X/Twitter using EditThisCookie extension.\n"
-            "Save as cookies.json in the project root."
+            "Set TWITTER_COOKIES_JSON env var or place cookies.json in the project root."
         )
     raw = json.loads(p.read_text())
     if isinstance(raw, list):
