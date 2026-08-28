@@ -56,6 +56,16 @@ EVENT_SEARCH_QUERIES = [
     "shorts contest crypto",
     "make a video win prizes crypto",
     "content creator contest crypto",
+    "video challenge crypto",
+    "reels challenge",
+    "shorts challenge",
+    "best video wins prizes",
+    "video contest submissions",
+    "make a reel to enter",
+    "content creator challenge",
+    "film contest crypto",
+    "tiktok challenge crypto",
+    "video creator contest",
     "crypto giveaway ends",
     "giveaway ends soon",
     "raffle ends",
@@ -114,6 +124,26 @@ async def _init_client() -> Client:
     return client
 
 
+async def _search_pages(client: Client, query: str, count: int, max_pages: int) -> list:
+    """Search with pagination to gather deeper results beyond a single page."""
+    tweets: list = []
+    result = await client.search_tweet(query, "Latest", count=count)
+    page = 0
+    while result is not None and len(result) > 0 and page < max(max_pages, 1):
+        for tweet in result:
+            tweets.append(tweet)
+        cursor = getattr(result, "next_cursor", None)
+        if not cursor:
+            break
+        next_result = await result.next()
+        if next_result is None or len(next_result) == 0:
+            break
+        result = next_result
+        page += 1
+        await asyncio.sleep(3)
+    return tweets
+
+
 def _parse_twitter_date(date_str: str) -> datetime | None:
     """Parse Twitter's date format: 'Fri Jun 20 13:50:15 +0000 2025'"""
     if not date_str:
@@ -163,7 +193,9 @@ async def discover_builders() -> list[dict]:
     for query in SEARCH_QUERIES:
         try:
             logger.info(f"Searching: {query}")
-            tweets = await client.search_tweet(query, "Latest", count=20)
+            tweets = await _search_pages(
+                client, query, settings.search_tweets_per_query, settings.search_max_pages
+            )
 
             for tweet in tweets:
                 user = tweet.user
@@ -212,7 +244,9 @@ async def discover_events() -> list[dict]:
     for query in EVENT_SEARCH_QUERIES:
         try:
             logger.info(f"Event search: {query}")
-            tweets = await client.search_tweet(query, "Latest", count=20)
+            tweets = await _search_pages(
+                client, query, settings.search_tweets_per_query, settings.search_max_pages
+            )
 
             for tweet in tweets:
                 user = tweet.user

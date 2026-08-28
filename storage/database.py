@@ -167,6 +167,15 @@ async def account_exists(username: str) -> bool:
         return await cursor.fetchone() is not None
 
 
+async def event_exists(name: str, username: str, deadline: str) -> bool:
+    async with aiosqlite.connect(settings.db_path) as db:
+        cursor = await db.execute(
+            "SELECT 1 FROM events WHERE name = ? AND username = ? AND deadline = ?",
+            (name, username, deadline),
+        )
+        return await cursor.fetchone() is not None
+
+
 async def save_account(username: str, data: dict):
     import json
 

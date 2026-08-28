@@ -21,6 +21,7 @@ from notification.telegram import send_telegram
 from storage.database import (
     init_db, save_account, save_project, save_event, mark_notified, mark_event_notified,
     save_run, get_stats, is_notified, get_upcoming_events, log_error,
+    account_exists, event_exists,
 )
 
 logging.basicConfig(
@@ -51,6 +52,12 @@ async def run_pipeline():
 
     logger.info(f"Found {len(accounts)} candidate accounts")
 
+    accounts = [
+        a for a in accounts
+        if not await account_exists(a["username"])
+    ]
+    logger.info(f"{len(accounts)} new accounts after dropping already-seen ones")
+
     logger.info("Step 2: Discovering hackathons/contests from Twitter...")
     events_found = 0
     try:
@@ -62,6 +69,8 @@ async def run_pipeline():
                 evt.get("engagement"),
             )
             if event:
+                if await event_exists(event["name"], event["username"], event["deadline"]):
+                    continue
                 event["followers"] = evt.get("followers", 0)
                 await save_event(event)
                 events_found += 1

@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     telegram_chat_id: str = ""
     score_threshold: int = 60
     max_accounts_per_run: int = 50
+    search_tweets_per_query: int = 40
+    search_max_pages: int = 2
     github_token: str = ""
     db_path: str = "scanner.db"
     llm_min_score: int = 35
