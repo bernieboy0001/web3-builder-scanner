@@ -181,7 +181,7 @@ async def save_account(username: str, data: dict):
 
     async with aiosqlite.connect(settings.db_path) as db:
         await db.execute(
-            """INSERT OR REPLACE INTO accounts
+            """INSERT INTO accounts
             (username, name, description, followers, discovered_at, first_seen, last_seen,
              final_score, qualifies, notified, profile_score, content_score,
              engagement_score, onchain_score, github_score, llm_score, llm_verdict,
@@ -189,7 +189,22 @@ async def save_account(username: str, data: dict):
              has_website, project_url, project_name, project_description, project_chain, project_type,
              is_launch, is_existing, is_hiring)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(username) DO UPDATE SET
+                name=excluded.name, description=excluded.description,
+                followers=excluded.followers, last_seen=excluded.last_seen,
+                final_score=excluded.final_score, qualifies=excluded.qualifies,
+                profile_score=excluded.profile_score, content_score=excluded.content_score,
+                engagement_score=excluded.engagement_score, onchain_score=excluded.onchain_score,
+                github_score=excluded.github_score, llm_score=excluded.llm_score,
+                llm_verdict=excluded.llm_verdict, signals=excluded.signals,
+                github_data=excluded.github_data, onchain_data=excluded.onchain_data,
+                discovered_via=excluded.discovered_via, has_website=excluded.has_website,
+                project_url=excluded.project_url, project_name=excluded.project_name,
+                project_description=excluded.project_description, project_chain=excluded.project_chain,
+                project_type=excluded.project_type, is_launch=excluded.is_launch,
+                is_existing=excluded.is_existing, is_hiring=excluded.is_hiring,
+                notified=accounts.notified, first_seen=accounts.first_seen""",
             (
                 username,
                 data.get("name", ""),
