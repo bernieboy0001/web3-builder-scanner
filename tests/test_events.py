@@ -49,6 +49,24 @@ class TestEventType:
     def test_video_contest(self):
         assert _event_type("Video contest: make a short video") == "video_contest"
 
+    def test_video_editing_contest(self):
+        assert _event_type("Video editing contest: best edit wins $500") == "video_editing_contest"
+
+    def test_video_editing_variants(self):
+        for text in [
+            "Video edit contest - create the best clip",
+            "Editing contest for our new trailer! Win SOL",
+            "Motion graphics contest entries open now",
+            "Reel edit challenge: cut our footage to win",
+        ]:
+            assert _event_type(text) == "video_editing_contest", text
+
+    def test_video_editing_checked_before_general_video(self):
+        assert (
+            _event_type("Video editing contest: submit your edit")
+            != "video_contest"
+        )
+
     def test_giveaway(self):
         assert _event_type("Giveaway! Like and retweet to enter") == "giveaway"
 
@@ -137,6 +155,16 @@ class TestEventExtraction:
         assert event is not None
         assert event["event_type"] == "giveaway"
         assert event["engagement_tier"] == "high"
+
+    def test_video_editing_extraction(self):
+        tweet = (
+            "Video editing contest! Cut our gameplay trailer and win $1000. "
+            "Entries close February 10."
+        )
+        event = extract_event_from_tweet(tweet, "gamefi")
+        assert event is not None
+        assert event["event_type"] == "video_editing_contest"
+        assert any("video editing contest" in s for s in event["signals"])
 
     def test_contest_ignores_engagement(self):
         tweet = "The Base Hackathon is live! Submissions due January 30."

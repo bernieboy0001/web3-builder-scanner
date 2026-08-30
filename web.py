@@ -27,7 +27,7 @@ DASHBOARD_HTML = """
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0a0a0f;color:#e0e0e0;min-height:100vh}
-.header{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);padding:24px 32px;border-bottom:1px solid #1e3a5f}
+.header{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);padding:24px 32px;border-bottom:1px solid #1e3a5f;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px}
 .header h1{font-size:24px;color:#fff;display:flex;align-items:center;gap:10px}
 .header h1 span{color:#00d4aa}
 .header p{color:#8892a4;font-size:14px;margin-top:4px}
@@ -96,13 +96,30 @@ tr:hover td{background:#16162a}
 .btn{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s}
 .btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(59,130,246,.4)}
 .btn:disabled{opacity:.5;cursor:not-allowed}
-@media(max-width:768px){.stats-grid{grid-template-columns:repeat(2,1fr)}.container{padding:12px}th,td{padding:8px 12px}.run-stats{gap:8px}}
+.toggle{display:flex;align-items:center;gap:10px;background:#12121a;border:1px solid #1e3a5f;border-radius:10px;padding:10px 14px;cursor:pointer;user-select:none;transition:border-color .2s}
+.toggle:hover{border-color:#2c4f7d}
+.toggle .switch{width:42px;height:22px;border-radius:12px;background:#2a2a3a;position:relative;transition:background .25s;flex:none}
+.toggle .switch::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#94a3b8;transition:left .25s,background .25s}
+.toggle.on .switch{background:linear-gradient(90deg,#10b981,#34d399)}
+.toggle.on .switch::after{left:22px;background:#fff}
+.toggle .dot{width:8px;height:8px;border-radius:50%;background:#f87171;flex:none}
+.toggle.on .dot{background:#34d399;box-shadow:0 0 6px #34d399}
+.toggle-label{font-size:12px;color:#94a3b8;white-space:nowrap}
+.toggle.disabled{opacity:.55;cursor:wait}
+@media(max-width:768px){.stats-grid{grid-template-columns:repeat(2,1fr)}.container{padding:12px}th,td{padding:8px 12px}.run-stats{gap:8px}.toggle-label{font-size:10px}}
 </style>
 </head>
 <body>
 <div class="header">
+<div>
 <h1>&#9889; Web3 Builder <span>Scanner</span></h1>
 <p>Discovering new & existing crypto projects across all chains + upcoming hackathons & contests</p>
+</div>
+<div class="toggle off" id="tg-toggle" onclick="toggleTelegram()" title="Start or stop Telegram push notifications">
+<span class="dot" id="tg-dot"></span>
+<span class="switch"></span>
+<span class="toggle-label" id="tg-label">Telegram: ...</span>
+</div>
 </div>
 <div class="container">
 <div class="stats-grid">
@@ -194,11 +211,23 @@ function scoreClass(s){return s>=60?'score-high':s>=30?'score-mid':'score-low'}
 function chainClass(c){if(!c)return'chain-default';c=c.toLowerCase();if(c.includes('eth'))return'chain-eth';if(c.includes('base'))return'chain-base';if(c.includes('arb'))return'chain-arb';if(c.includes('poly'))return'chain-poly';if(c.includes('sol'))return'chain-sol';return'chain-default'}
 function typeClass(t){if(!t)return'type-other';t=t.toLowerCase();if(t.includes('defi'))return'type-defi';if(t.includes('nft'))return'type-nft';if(t.includes('token'))return'type-token';if(t.includes('infra'))return'type-infra';if(t.includes('tool'))return'type-tooling';return'type-other'}
 function eventClass(t){return t==='hackathon'?'badge green':t==='meme_contest'?'badge purple':t==='giveaway'?'badge orange':'badge blue'}
-function eventLabel(t){return t==='hackathon'?'Hackathon':t==='meme_contest'?'Meme Contest':t==='video_contest'?'Video Contest':t==='giveaway'?'Giveaway':t}
+function eventLabel(t){return t==='hackathon'?'Hackathon':t==='meme_contest'?'Meme Contest':t==='video_contest'?'Video Contest':t==='video_editing_contest'?'Video Editing Contest':t==='giveaway'?'Giveaway':t}
 function daysLabel(d){if(d===null||d===undefined)return'';d=parseInt(d);return d<0?'CLOSED':d+'d left'}
 let activeTab='projects';
 function switchTab(el,t){document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));document.querySelectorAll('[id^=tab-]').forEach(e=>e.style.display='none');el.classList.add('active');document.getElementById('tab-'+t).style.display='';activeTab=t;if(t==='events'&&!window._eventsLoaded){loadEvents();window._eventsLoaded=true}}
 function tierLabel(t){return t==='high'?'<span class="badge green">HIGH ENG</span>':t==='low'?'<span class="badge orange">LOW ENG</span>':'<span style="color:#6b7280">-</span>'}
+function setTelegramUI(on){const t=document.getElementById('tg-toggle');t.classList.toggle('on',!!on);document.getElementById('tg-label').textContent=on?'Telegram Push: ON':'Telegram Push: OFF'}
+function loadTelegram(){
+fetch('/api/settings').then(r=>r.json()).then(d=>setTelegramUI(d.telegram_enabled)).catch(e=>console.error(e));
+}
+function toggleTelegram(){
+const t=document.getElementById('tg-toggle');
+const next=!t.classList.contains('on');
+t.classList.add('disabled');
+fetch('/api/settings/telegram',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:next})})
+.then(r=>r.json()).then(d=>setTelegramUI(d.telegram_enabled)).catch(e=>console.error('toggle failed',e))
+.finally(()=>t.classList.remove('disabled'));
+}
 function loadEvents(){
 fetch('/api/events').then(r=>r.json()).then(d=>{
 document.getElementById('events-badge').textContent=d.length;
@@ -252,7 +281,7 @@ if(!d.length){el.innerHTML='<div class="empty">No runs yet</div>';return}
 el.innerHTML=d.map(r=>'<div class="run-item"><div><div class="run-time">'+r.timestamp+'</div></div><div class="run-stats"><span class="run-stat">Found <b>'+r.accounts_found+'</b></span><span class="run-stat">Projects <b>'+(r.projects_found||0)+'</b></span><span class="run-stat">Events <b>'+(r.events_found||0)+'</b></span><span class="run-stat">Qualified <b>'+r.accounts_qualified+'</b></span><span class="run-stat">Notified <b>'+r.accounts_notified+'</b></span><span class="run-stat">Errors <b>'+r.errors+'</b></span><span class="run-stat">'+r.duration_seconds+'s</span></div></div>').join('');
 }).catch(e=>console.error(e));
 }
-loadData();setInterval(loadData,30000);
+loadData();loadTelegram();setInterval(function(){loadData();loadTelegram()},30000);
 </script>
 </body>
 </html>
@@ -358,6 +387,31 @@ def api_stats():
         "last_run_short": last_run_short,
         "last_run_ago": last_run_ago,
     })
+
+
+@app.route("/api/settings")
+def api_settings():
+    db = _db()
+    cur = db.cursor()
+    cur.execute("SELECT value FROM app_settings WHERE key = 'telegram_enabled'")
+    row = cur.fetchone()
+    db.close()
+    return jsonify({"telegram_enabled": bool(row and row[0] == "1")})
+
+
+@app.route("/api/settings/telegram", methods=["POST"])
+def api_set_telegram():
+    from flask import request
+    data = request.get_json(silent=True) or {}
+    enabled = bool(data.get("enabled"))
+    db = _db()
+    db.execute(
+        "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('telegram_enabled', ?)",
+        ("1" if enabled else "0",),
+    )
+    db.commit()
+    db.close()
+    return jsonify({"telegram_enabled": enabled})
 
 
 @app.route("/api/accounts")

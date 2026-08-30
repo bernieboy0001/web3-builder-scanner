@@ -21,7 +21,7 @@ from notification.telegram import send_telegram
 from storage.database import (
     init_db, save_account, save_project, save_event, mark_notified, mark_event_notified,
     save_run, get_stats, is_notified, get_upcoming_events, log_error,
-    account_exists, event_exists,
+    account_exists, event_exists, get_setting,
 )
 
 logging.basicConfig(
@@ -57,6 +57,9 @@ async def run_pipeline():
         if not await account_exists(a["username"])
     ]
     logger.info(f"{len(accounts)} new accounts after dropping already-seen ones")
+
+    telegram_enabled = (await get_setting("telegram_enabled", "1")) == "1"
+    logger.info(f"Telegram notifications: {'ENABLED' if telegram_enabled else 'PAUSED'} (toggle on dashboard)")
 
     logger.info("Step 2: Discovering hackathons/contests from Twitter...")
     events_found = 0
@@ -236,6 +239,9 @@ async def run_pipeline():
                 )
 
                 if not await is_notified(username):
+                    if not telegram_enabled:
+                        logger.debug(f"  Telegram paused, not sending @{username}")
+                        continue
                     sent = await send_telegram(save_data)
                     if sent:
                         await mark_notified(username)
@@ -252,32 +258,35 @@ async def run_pipeline():
             await log_error(username, str(e))
 
     notified_events = 0
-    try:
-        upcoming = await get_upcoming_events()
-        for evt_id, etype, name, username, deadline, days_left, prizes, url, engagement_tier, likes, retweets, replies in upcoming:
-            deadline_dt = datetime.fromisoformat(deadline)
-            now = datetime.now(timezone.utc)
-            if deadline_dt < now:
-                continue
-            sent = await send_telegram({
-                "event_type": etype,
-                "name": name,
-                "username": username,
-                "deadline": deadline,
-                "days_left": days_left,
-                "prizes": prizes,
-                "url": url,
-                "engagement_tier": engagement_tier,
-                "likes": likes,
-                "retweets": retweets,
-                "replies": replies,
-            })
-            if sent:
-                await mark_event_notified(evt_id)
-                notified_events += 1
-                await asyncio.sleep(1)
-    except Exception as e:
-        logger.error(f"Event notification failed: {e}")
+    if telegram_enabled:
+        try:
+            upcoming = await get_upcoming_events()
+            for evt_id, etype, name, username, deadline, days_left, prizes, url, engagement_tier, likes, retweets, replies in upcoming:
+                deadline_dt = datetime.fromisoformat(deadline)
+                now = datetime.now(timezone.utc)
+                if deadline_dt < now:
+                    continue
+                sent = await send_telegram({
+                    "event_type": etype,
+                    "name": name,
+                    "username": username,
+                    "deadline": deadline,
+                    "days_left": days_left,
+                    "prizes": prizes,
+                    "url": url,
+                    "engagement_tier": engagement_tier,
+                    "likes": likes,
+                    "retweets": retweets,
+                    "replies": replies,
+                })
+                if sent:
+                    await mark_event_notified(evt_id)
+                    notified_events += 1
+                    await asyncio.sleep(1)
+        except Exception as e:
+            logger.error(f"Event notification failed: {e}")
+    else:
+        logger.info("Telegram paused - skipping event notifications")
 
     duration = time.time() - start
     run_data = {

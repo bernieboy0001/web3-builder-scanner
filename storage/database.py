@@ -98,6 +98,11 @@ CREATE TABLE IF NOT EXISTS events (
     engagement_tier TEXT DEFAULT '',
     UNIQUE(name, username, deadline)
 );
+
+CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+);
 """
 
 
@@ -141,6 +146,7 @@ async def init_db():
                 await db.execute(f"ALTER TABLE events ADD COLUMN {col} {typ}")
             except Exception:
                 pass
+        await db.execute("INSERT OR IGNORE INTO app_settings (key, value) VALUES ('telegram_enabled', '1')")
         await db.commit()
         logger.info("Database initialized")
 
@@ -174,6 +180,24 @@ async def event_exists(name: str, username: str, deadline: str) -> bool:
             (name, username, deadline),
         )
         return await cursor.fetchone() is not None
+
+
+async def get_setting(key: str, default: str | None = None) -> str | None:
+    async with aiosqlite.connect(settings.db_path) as db:
+        cursor = await db.execute(
+            "SELECT value FROM app_settings WHERE key = ?", (key,)
+        )
+        row = await cursor.fetchone()
+    return row[0] if row else default
+
+
+async def set_setting(key: str, value: str):
+    async with aiosqlite.connect(settings.db_path) as db:
+        await db.execute(
+            "INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)",
+            (key, value),
+        )
+        await db.commit()
 
 
 async def save_account(username: str, data: dict):

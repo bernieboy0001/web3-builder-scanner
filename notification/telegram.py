@@ -89,6 +89,7 @@ def _format_event_message(event: dict) -> str:
         "hackathon": "Hackathon",
         "meme_contest": "Meme Contest",
         "video_contest": "Video Contest",
+        "video_editing_contest": "Video Editing Contest",
         "giveaway": "Giveaway",
         "contest": "Contest",
     }

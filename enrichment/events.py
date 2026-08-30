@@ -12,6 +12,12 @@ VIDEO_KEYWORDS = [
     "video contest", "video competition", "video challenge", "reels contest",
     "shorts contest", "make a video", "video creation contest", "tiktok contest",
 ]
+VIDEO_EDITING_KEYWORDS = [
+    "video editing contest", "video edit contest", "editing contest",
+    "video editor contest", "edit challenge", "edit to win",
+    "motion graphics contest", "clip editing contest", "reel edit contest",
+    "shorts editing contest", "video editing challenge",
+]
 GIVEAWAY_KEYWORDS = [
     "giveaway", "raffle",
     "like and retweet", "like and rt", "love and retweet", "love and rt",
@@ -191,6 +197,8 @@ def _event_type(text: str) -> str:
         return "hackathon"
     if any(kw in t for kw in MEME_KEYWORDS):
         return "meme_contest"
+    if any(kw in t for kw in VIDEO_EDITING_KEYWORDS):
+        return "video_editing_contest"
     if any(kw in t for kw in VIDEO_KEYWORDS):
         return "video_contest"
     if any(kw in t for kw in GIVEAWAY_KEYWORDS):
@@ -200,8 +208,8 @@ def _event_type(text: str) -> str:
 
 def _extract_name(text: str, username: str) -> str:
     patterns = [
-        r"(?:hackathon|meme contest|video contest|competition|challenge)\s*(?:for|in|on)?\s*([A-Z][A-Za-z0-9]+)",
-        r"([A-Z][a-zA-Z0-9]+)\s*(?:hackathon|meme contest|video contest|competition|challenge)",
+        r"(?:hackathon|meme contest|video contest|video editing contest|competition|challenge)\s*(?:for|in|on)?\s*([A-Z][A-Za-z0-9]+)",
+        r"([A-Z][a-zA-Z0-9]+)\s*(?:hackathon|meme contest|video contest|video editing contest|competition|challenge)",
         r"(?:join|enter|participate in|win)\s+([A-Z][A-Za-z0-9 ]{1,30})",
     ]
     for pattern in patterns:
@@ -252,6 +260,8 @@ def extract_event_from_tweet(
         signals.append("hackathon")
     elif ev_type == "meme_contest":
         signals.append("meme contest")
+    elif ev_type == "video_editing_contest":
+        signals.append("video editing contest")
     elif ev_type == "video_contest":
         signals.append("video contest")
     elif ev_type == "giveaway":
