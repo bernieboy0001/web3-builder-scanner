@@ -121,6 +121,31 @@ def _format_event_message(event: dict) -> str:
     return "\n".join(lines)
 
 
+async def send_test_message() -> dict:
+    if not settings.telegram_bot_token or not settings.telegram_chat_id:
+        return {
+            "ok": False,
+            "error": "TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID are not set on this server (check Render env vars)",
+        }
+    url = f"{TELEGRAM_API.format(token=settings.telegram_bot_token)}/sendMessage"
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                url,
+                json={
+                    "chat_id": settings.telegram_chat_id,
+                    "text": "Test from Web3 Builder Scanner - your bot works!",
+                    "disable_web_page_preview": True,
+                },
+                timeout=10,
+            )
+        if resp.status_code == 200:
+            return {"ok": True}
+        return {"ok": False, "error": f"Telegram API {resp.status_code}: {resp.text[:200]}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 async def send_telegram(account: dict) -> bool:
     if not settings.telegram_bot_token or not settings.telegram_chat_id:
         logger.warning("Telegram not configured, skipping send")

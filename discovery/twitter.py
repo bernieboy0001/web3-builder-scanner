@@ -129,10 +129,16 @@ async def _init_client() -> Client:
     return client
 
 
-async def _search_pages(client: Client, query: str, count: int, max_pages: int) -> list:
+async def _search_pages(
+    client: Client,
+    query: str,
+    count: int,
+    max_pages: int,
+    product: str = "Latest",
+) -> list:
     """Search with pagination to gather deeper results beyond a single page."""
     tweets: list = []
-    result = await client.search_tweet(query, "Latest", count=count)
+    result = await client.search_tweet(query, product, count=count)
     page = 0
     while result is not None and len(result) > 0 and page < max(max_pages, 1):
         for tweet in result:
@@ -247,54 +253,60 @@ async def discover_events() -> list[dict]:
     seen_tweets: dict[str, dict] = {}
 
     for query in EVENT_SEARCH_QUERIES:
-        try:
-            logger.info(f"Event search: {query}")
-            tweets = await _search_pages(
-                client, query, settings.search_tweets_per_query, settings.search_max_pages
-            )
+        products = ["Latest", "Top"]
+        if any(k in query for k in ("video", "reel", "shorts", "tiktok", "film", "edit", "meme")):
+            products.append("Media")
 
-            for tweet in tweets:
-                user = tweet.user
-                if not user:
-                    continue
+        for product in products:
+            try:
+                logger.info(f"Event search [{product}]: {query}")
+                tweets = await _search_pages(
+                    client, query, settings.search_tweets_per_query,
+                    settings.event_max_pages, product=product,
+                )
 
-                followers = getattr(user, "followers_count", 0) or 0
-                if followers > MAX_EVENT_FOLLOWERS:
-                    continue
+                for tweet in tweets:
+                    user = tweet.user
+                    if not user:
+                        continue
 
-                tweet_count = getattr(user, "statuses_count", 0) or 0
-                if tweet_count < MIN_EVENT_TWEET_COUNT:
-                    continue
+                    followers = getattr(user, "followers_count", 0) or 0
+                    if followers > MAX_EVENT_FOLLOWERS:
+                        continue
 
-                tweet_id = getattr(tweet, "id", None) or tweet.text[:100]
-                if tweet_id in seen_tweets:
-                    continue
+                    tweet_count = getattr(user, "statuses_count", 0) or 0
+                    if tweet_count < MIN_EVENT_TWEET_COUNT:
+                        continue
 
-                username = _extract_username(user)
-                seen_tweets[tweet_id] = {
-                    "username": username,
-                    "user_id": getattr(user, "id", None),
-                    "name": getattr(user, "name", ""),
-                    "description": getattr(user, "description", ""),
-                    "followers": followers,
-                    "following": getattr(user, "following_count", 0) or 0,
-                    "tweet_count": tweet_count,
-                    "profile_url": f"https://x.com/{username}",
-                    "event_tweet": tweet.text[:500] if tweet.text else "",
-                    "engagement": {
-                        "likes": getattr(tweet, "favorite_count", None) or 0,
-                        "retweets": getattr(tweet, "retweet_count", None) or 0,
-                        "replies": getattr(tweet, "reply_count", None) or 0,
-                    },
-                    "discovered_via": query,
-                    "discovered_at": datetime.now(timezone.utc).isoformat(),
-                }
+                    tweet_id = getattr(tweet, "id", None) or tweet.text[:100]
+                    if tweet_id in seen_tweets:
+                        continue
 
-            await asyncio.sleep(3)
+                    username = _extract_username(user)
+                    seen_tweets[tweet_id] = {
+                        "username": username,
+                        "user_id": getattr(user, "id", None),
+                        "name": getattr(user, "name", ""),
+                        "description": getattr(user, "description", ""),
+                        "followers": followers,
+                        "following": getattr(user, "following_count", 0) or 0,
+                        "tweet_count": tweet_count,
+                        "profile_url": f"https://x.com/{username}",
+                        "event_tweet": tweet.text[:500] if tweet.text else "",
+                        "engagement": {
+                            "likes": getattr(tweet, "favorite_count", None) or 0,
+                            "retweets": getattr(tweet, "retweet_count", None) or 0,
+                            "replies": getattr(tweet, "reply_count", None) or 0,
+                        },
+                        "discovered_via": f"{query} [{product}]",
+                        "discovered_at": datetime.now(timezone.utc).isoformat(),
+                    }
 
-        except Exception as e:
-            logger.warning(f"Event search failed for '{query}': {e}")
-            await asyncio.sleep(5)
+                await asyncio.sleep(3)
+
+            except Exception as e:
+                logger.warning(f"Event search failed [{product}] '{query}': {e}")
+                await asyncio.sleep(5)
 
     logger.info(f"Discovered {len(seen_tweets)} event tweets")
     return list(seen_tweets.values())

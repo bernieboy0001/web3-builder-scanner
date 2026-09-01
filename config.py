@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     max_accounts_per_run: int = 50
     search_tweets_per_query: int = 40
     search_max_pages: int = 2
+    event_max_pages: int = 3
     github_token: str = ""
     db_path: str = "scanner.db"
     llm_min_score: int = 35

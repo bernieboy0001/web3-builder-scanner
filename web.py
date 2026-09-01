@@ -119,6 +119,7 @@ tr:hover td{background:#16162a}
 <span class="dot" id="tg-dot"></span>
 <span class="switch"></span>
 <span class="toggle-label" id="tg-label">Telegram: ...</span>
+<button class="btn" id="tg-test" onclick="event.preventDefault();event.stopPropagation();testTelegram()" style="padding:6px 10px;font-size:11px" title="Send a test message to verify the bot works">Test</button>
 </div>
 </div>
 <div class="container">
@@ -227,6 +228,15 @@ t.classList.add('disabled');
 fetch('/api/settings/telegram',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:next})})
 .then(r=>r.json()).then(d=>setTelegramUI(d.telegram_enabled)).catch(e=>console.error('toggle failed',e))
 .finally(()=>t.classList.remove('disabled'));
+}
+function testTelegram(){
+const b=document.getElementById('tg-test');
+const old=b.textContent;
+b.textContent='Sending...';b.disabled=true;
+fetch('/api/settings/telegram/test',{method:'POST'})
+.then(r=>r.json()).then(d=>{alert(d.ok?'Test message sent - check your Telegram chat!':'Test failed: '+(d.error||'unknown error'));})
+.catch(e=>alert('Test failed: '+e))
+.finally(()=>{b.textContent=old;b.disabled=false});
 }
 function loadEvents(){
 fetch('/api/events').then(r=>r.json()).then(d=>{
@@ -412,6 +422,15 @@ def api_set_telegram():
     db.commit()
     db.close()
     return jsonify({"telegram_enabled": enabled})
+
+
+@app.route("/api/settings/telegram/test", methods=["POST"])
+def api_test_telegram():
+    import asyncio
+    from notification.telegram import send_test_message
+    result = asyncio.run(send_test_message())
+    result.setdefault("telegram_enabled", True)
+    return jsonify(result)
 
 
 @app.route("/api/accounts")
