@@ -3,7 +3,7 @@ import json
 import logging
 import re
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from twikit import Client
 
@@ -81,6 +81,18 @@ EVENT_SEARCH_QUERIES = [
     "last day giveaway",
     "nft giveaway ends",
     "token giveaway",
+    "hackathon applications open now",
+    "hackathon sign up today",
+    "build away hackathon",
+    "hackathon live now",
+    "new hackathon announced",
+    "register hackathon crypto",
+    "meme contest opening",
+    "contest ends this week crypto",
+    "deadline approaching contest",
+    "entries open contest crypto",
+    "win usd contest crypto",
+    "expires soon contest crypto",
 ]
 
 MIN_FOLLOWERS = 0
@@ -89,6 +101,7 @@ MAX_EVENT_FOLLOWERS = 100000
 MIN_ACCOUNT_AGE_DAYS = 90
 MIN_TWEET_COUNT = 20
 MIN_EVENT_TWEET_COUNT = 5
+EVENT_FRESHNESS_DAYS = 7
 
 
 def _parse_cookies(path: str) -> list[dict]:
@@ -277,6 +290,18 @@ async def discover_events() -> list[dict]:
                     tweet_count = getattr(user, "statuses_count", 0) or 0
                     if tweet_count < MIN_EVENT_TWEET_COUNT:
                         continue
+
+                    created_at = getattr(tweet, "created_at", None)
+                    created_dt = (
+                        _parse_twitter_date(created_at)
+                        if isinstance(created_at, str)
+                        else created_at
+                    )
+                    if created_dt:
+                        age = datetime.now(timezone.utc) - created_dt
+                        if age > timedelta(days=EVENT_FRESHNESS_DAYS):
+                            logger.debug(f"Stale event tweet from {created_dt}, skipping")
+                            continue
 
                     tweet_id = getattr(tweet, "id", None) or tweet.text[:100]
                     if tweet_id in seen_tweets:
